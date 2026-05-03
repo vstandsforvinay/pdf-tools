@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<meta name="description" content="Unlock PDFs, resize files, and create passport photos — all in your browser."/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="PDF Tools"/>
+<link rel="apple-touch-icon" href="icons/icon-192.svg"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+<title>PDF Tools</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#1a1a2e;--surface:#16213e;--primary:#e94560;--primary-hover:#ff6b81;--text:#eee;--text-muted:#aaa;--border:#2a2a4a;--success:#2ecc71;--error:#e74c3c;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:1rem}
+header{text-align:center;padding:1.5rem 1rem .5rem}
+header h1{font-size:1.8rem;font-weight:700;margin-bottom:.4rem}
+header h1 span{color:var(--primary)}
+header p{color:var(--text-muted);font-size:.9rem;max-width:460px}
+.badge{display:inline-flex;align-items:center;gap:.3rem;margin-top:.5rem;padding:.25rem .6rem;background:rgba(46,204,113,.15);color:var(--success);border-radius:20px;font-size:.75rem;font-weight:500}
+.badge svg{width:13px;height:13px}
+
+/* Tabs */
+.tabs{display:flex;gap:0;width:100%;max-width:700px;margin-top:1.2rem}
+.tab{flex:1;padding:.65rem .3rem;text-align:center;background:var(--surface);border:1px solid var(--border);cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text-muted);transition:all .2s;white-space:nowrap}
+.tab:first-child{border-radius:var(--radius) 0 0 0}
+.tab:last-child{border-radius:0 var(--radius) 0 0}
+.tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+.card{background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:1.5rem;width:100%;max-width:700px}
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:2rem 1rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;position:relative}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--primary);background:rgba(233,69,96,.05)}
+.drop-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop-zone .icon{font-size:2.2rem;margin-bottom:.4rem}
+.drop-zone .label{font-size:.9rem;color:var(--text-muted)}
+.drop-zone .label strong{color:var(--primary)}
+.file-info{display:none;align-items:center;gap:.75rem;padding:.7rem;background:rgba(233,69,96,.08);border-radius:8px;margin-top:.8rem}
+.file-info.visible{display:flex}
+.file-info .fi{font-size:1.3rem}
+.file-info .fd{flex:1;min-width:0}
+.file-info .fn{font-weight:600;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-info .fs{font-size:.75rem;color:var(--text-muted)}
+.file-info .rb{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;padding:.2rem;line-height:1}
+.file-info .rb:hover{color:var(--error)}
+
+.field{margin-top:.8rem;display:none}
+.field.visible{display:block}
+.field label{display:block;font-size:.82rem;color:var(--text-muted);margin-bottom:.3rem}
+.field-row{position:relative}
+.field-row input,.field-row select{width:100%;padding:.6rem .8rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;outline:none;transition:border-color .2s}
+.field-row input:focus,.field-row select:focus{border-color:var(--primary)}
+.toggle-pw{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:.2rem}
+
+.presets{display:flex;gap:.4rem;margin-top:.5rem;flex-wrap:wrap}
+.preset{padding:.3rem .7rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.78rem;color:var(--text-muted);cursor:pointer;transition:all .15s}
+.preset:hover,.preset.active{border-color:var(--primary);color:var(--primary)}
+
+.action-btn{display:none;width:100%;margin-top:1rem;padding:.75rem;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;transition:background .2s,transform .1s}
+.action-btn.visible{display:block}
+.action-btn:hover:not(:disabled){background:var(--primary-hover)}
+.action-btn:active:not(:disabled){transform:scale(.98)}
+.action-btn:disabled{opacity:.6;cursor:not-allowed}
+
+.progress-container{display:none;margin-top:.8rem}
+.progress-container.visible{display:block}
+.progress-bar-bg{width:100%;height:5px;background:var(--bg);border-radius:3px;overflow:hidden}
+.progress-bar{height:100%;background:var(--primary);border-radius:3px;width:0%;transition:width .3s ease}
+.progress-text{font-size:.78rem;color:var(--text-muted);margin-top:.3rem;text-align:center}
+
+.status{display:none;margin-top:.8rem;padding:.6rem;border-radius:8px;font-size:.85rem;text-align:center}
+.status.visible{display:block}
+.status.success{background:rgba(46,204,113,.12);color:var(--success)}
+.status.error{background:rgba(231,76,60,.12);color:var(--error)}
+
+.preview-area{display:none;margin-top:.8rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;max-height:70vh;overflow-y:auto;background:#333;-webkit-overflow-scrolling:touch}
+.preview-area.visible{display:block}
+.preview-area canvas{display:block;width:100%;height:auto}
+.preview-nav{display:none;align-items:center;justify-content:center;gap:.8rem;margin-top:.5rem}
+.preview-nav.visible{display:flex}
+.preview-nav button{padding:.3rem .8rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;font-size:.8rem}
+.preview-nav button:hover{border-color:var(--primary)}
+.preview-nav button:disabled{opacity:.4;cursor:not-allowed}
+.preview-nav span{font-size:.8rem;color:var(--text-muted)}
+
+.download-btn{display:none;width:100%;margin-top:.6rem;padding:.75rem;background:var(--success);color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;transition:background .2s;text-decoration:none;text-align:center}
+.download-btn.visible{display:block}
+.download-btn:hover{background:#27ae60}
+
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .3s}
+.loading-overlay.hidden{opacity:0;pointer-events:none}
+.loading-spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{margin-top:1rem;color:var(--text-muted);font-size:.9rem}
+
+/* ===== PASSPORT PHOTO EDITOR ===== */
+.pp-section{display:none;margin-top:.8rem}
+.pp-section.visible{display:block}
+.pp-editor-wrap{position:relative;background:#222;border-radius:8px;overflow:hidden;margin-top:.6rem;touch-action:none;-webkit-user-select:none;user-select:none}
+.pp-editor-wrap canvas{display:block;width:100%;height:auto}
+.pp-crop-overlay{position:absolute;inset:0;pointer-events:none}
+.pp-crop-rect{position:absolute;border:2px dashed #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.55);pointer-events:auto;cursor:move;touch-action:none}
+.pp-crop-handle{position:absolute;width:20px;height:20px;background:var(--primary);border:2px solid #fff;border-radius:50%;pointer-events:auto;touch-action:none;transform:translate(-50%,-50%)}
+.pp-toolbar{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.6rem}
+.pp-toolbar button{padding:.4rem .7rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;font-size:.78rem;transition:all .15s}
+.pp-toolbar button:hover,.pp-toolbar button.active{border-color:var(--primary);color:var(--primary)}
+.pp-controls{margin-top:.6rem}
+.pp-control-group{display:none;margin-top:.5rem;padding:.6rem;background:var(--bg);border-radius:8px}
+.pp-control-group.visible{display:block}
+.pp-control-group label{display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:.3rem}
+.pp-control-group input[type="range"]{width:100%;accent-color:var(--primary)}
+.pp-control-group .range-val{font-size:.75rem;color:var(--primary);float:right}
+.pp-row{display:flex;gap:.5rem;align-items:center;margin-top:.4rem;flex-wrap:wrap}
+.pp-row input,.pp-row select{padding:.4rem .6rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.82rem;outline:none;flex:1;min-width:60px}
+.pp-row input:focus,.pp-row select:focus{border-color:var(--primary)}
+.pp-row .pp-label{font-size:.78rem;color:var(--text-muted);white-space:nowrap;flex:0 0 auto}
+.pp-color-input{width:36px!important;height:30px;padding:2px!important;cursor:pointer;flex:0 0 36px!important;min-width:36px!important}
+.pp-grid-info{margin-top:.6rem;padding:.5rem;background:var(--bg);border-radius:8px;font-size:.8rem;color:var(--text-muted);text-align:center}
+.pp-grid-info span{color:var(--primary);font-weight:600}
+.pp-preview-pdf{margin-top:.6rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff}
+.pp-preview-pdf canvas{display:block;width:100%;height:auto}
+
+footer{margin-top:auto;padding:1.5rem 1rem 1rem;text-align:center;font-size:.75rem;color:var(--text-muted)}
+footer .footer-tagline{margin-bottom:.6rem}
+footer .social-links{display:flex;justify-content:center;align-items:center;gap:.8rem;flex-wrap:wrap;margin-bottom:.4rem}
+footer .social-links a{display:inline-flex;align-items:center;gap:.3rem;color:var(--text-muted);text-decoration:none;transition:color .2s;font-size:.78rem}
+footer .social-links a:hover{color:var(--primary)}
+footer .social-links a svg{width:16px;height:16px;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Loading PDF Tools...</div>
+</div>
+
+<header>
+  <h1>&#128196; PDF <span>Tools</span></h1>
+  <p>Unlock PDFs, resize files &amp; create passport photos — right in your browser. Nothing leaves your device.</p>
+  <div class="badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    100% Private &amp; Offline
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="unlock">&#128275; Unlock</div>
+  <div class="tab" data-tab="resize">&#128200; Resize</div>
+  <div class="tab" data-tab="passport">&#128247; Passport Photo</div>
+</div>
+
+<div class="card">
+  <!-- ===== UNLOCK TAB ===== -->
+  <div class="tab-content active" id="tab-unlock">
+    <div class="drop-zone" id="u-drop">
+      <input type="file" id="u-file" accept=".pdf"/>
+      <div class="icon">&#128274;</div>
+      <div class="label">Select encrypted PDF</div>
+    </div>
+    <div class="file-info" id="u-info"><div class="fi">&#128206;</div><div class="fd"><div class="fn" id="u-fn"></div><div class="fs" id="u-fs"></div></div><button class="rb" id="u-rm">&times;</button></div>
+    <div class="field" id="u-pw-field">
+      <label for="u-pw">PDF Password</label>
+      <div class="field-row"><input type="password" id="u-pw" placeholder="Enter password" autocomplete="off"/><button class="toggle-pw" id="u-toggle">&#128065;</button></div>
+    </div>
+    <button class="action-btn" id="u-btn">&#128275; Unlock PDF</button>
+    <div class="progress-container" id="u-prog"><div class="progress-bar-bg"><div class="progress-bar" id="u-bar"></div></div><div class="progress-text" id="u-ptxt"></div></div>
+    <div class="status" id="u-status"></div>
+    <div class="preview-area" id="u-preview"><canvas id="u-canvas"></canvas></div>
+    <div class="preview-nav" id="u-nav"><button id="u-prev">&#9664; Prev</button><span id="u-pinfo"></span><button id="u-next">Next &#9654;</button></div>
+    <a class="download-btn" id="u-dl" download>&#11015; Download Unlocked PDF</a>
+  </div>
+
+  <!-- ===== RESIZE TAB ===== -->
+  <div class="tab-content" id="tab-resize">
+    <div class="drop-zone" id="r-drop">
+      <input type="file" id="r-file" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp"/>
+      <div class="icon">&#128200;</div>
+      <div class="label">Select PDF or image to resize</div>
+    </div>
+    <div class="file-info" id="r-info"><div class="fi">&#128206;</div><div class="fd"><div class="fn" id="r-fn"></div><div class="fs" id="r-fs"></div></div><button class="rb" id="r-rm">&times;</button></div>
+    <div class="field" id="r-pw-field">
+      <label for="r-pw">Password (if PDF is encrypted)</label>
+      <div class="field-row"><input type="password" id="r-pw" placeholder="Leave empty if not encrypted" autocomplete="off"/></div>
+    </div>
+    <div class="field" id="r-target-field">
+      <label for="r-target">Target file size (KB)</label>
+      <div class="field-row"><input type="number" id="r-target" value="100" min="5" max="50000"/></div>
+      <div class="presets" id="r-presets">
+        <div class="preset" data-kb="20">20 KB</div>
+        <div class="preset" data-kb="50">50 KB</div>
+        <div class="preset active" data-kb="100">100 KB</div>
+        <div class="preset" data-kb="200">200 KB</div>
+        <div class="preset" data-kb="500">500 KB</div>
+        <div class="preset" data-kb="1024">1 MB</div>
+      </div>
+    </div>
+    <button class="action-btn" id="r-btn">&#128200; Resize</button>
+    <div class="progress-container" id="r-prog"><div class="progress-bar-bg"><div class="progress-bar" id="r-bar"></div></div><div class="progress-text" id="r-ptxt"></div></div>
+    <div class="status" id="r-status"></div>
+    <div class="preview-area" id="r-preview"><canvas id="r-canvas"></canvas></div>
+    <div class="preview-nav" id="r-nav"><button id="r-prev">&#9664; Prev</button><span id="r-pinfo"></span><button id="r-next">Next &#9654;</button></div>
+    <div class="preview-area" id="r-img-preview"><img id="r-img" style="width:100%;height:auto;display:block" alt="Resized preview"/></div>
+    <a class="download-btn" id="r-dl" download>&#11015; Download Resized File</a>
+  </div>
+
+  <!-- ===== PASSPORT PHOTO TAB ===== -->
+  <div class="tab-content" id="tab-passport">
+    <div class="drop-zone" id="p-drop">
+      <input type="file" id="p-file" accept="image/*"/>
+      <div class="icon">&#128247;</div>
+      <div class="label">Upload your photo</div>
+    </div>
+
+    <!-- Editor Section -->
+    <div class="pp-section" id="p-editor-section">
+      <div class="file-info visible" id="p-info"><div class="fi">&#128206;</div><div class="fd"><div class="fn" id="p-fn"></div><div class="fs" id="p-fs"></div></div><button class="rb" id="p-rm">&times;</button></div>
+
+      <div class="pp-editor-wrap" id="p-editor-wrap">
+        <canvas id="p-canvas"></canvas>
+        <div class="pp-crop-overlay" id="p-crop-overlay" style="display:none">
+          <div class="pp-crop-rect" id="p-crop-rect">
+            <div class="pp-crop-handle" id="p-crop-nw" style="top:0;left:0"></div>
+            <div class="pp-crop-handle" id="p-crop-ne" style="top:0;right:0;transform:translate(50%,-50%)"></div>
+            <div class="pp-crop-handle" id="p-crop-sw" style="bottom:0;left:0;transform:translate(-50%,50%)"></div>
+            <div class="pp-crop-handle" id="p-crop-se" style="bottom:0;right:0;transform:translate(50%,50%)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pp-toolbar" id="p-toolbar">
+        <button id="p-tool-crop" data-tool="crop">&#9986; Crop</button>
+        <button id="p-tool-bright" data-tool="brightness">&#9728; Brightness</button>
+        <button id="p-tool-contrast" data-tool="contrast">&#9681; Contrast</button>
+        <button id="p-tool-border" data-tool="border">&#9634; Border</button>
+        <button id="p-tool-text" data-tool="text">T Text</button>
+        <button id="p-tool-reset" style="margin-left:auto;color:var(--error);border-color:var(--error)">&#8634; Reset</button>
+      </div>
+
+      <div class="pp-controls">
+        <!-- Crop controls -->
+        <div class="pp-control-group" id="p-ctrl-crop">
+          <label>Crop your photo. Drag the rectangle or handles to adjust.</label>
+          <div class="pp-row" style="margin-top:.4rem">
+            <button class="preset" id="p-crop-apply" style="background:var(--primary);color:#fff;border-color:var(--primary)">&#10004; Apply Crop</button>
+            <button class="preset" id="p-crop-cancel">Cancel</button>
+          </div>
+        </div>
+        <!-- Brightness controls -->
+        <div class="pp-control-group" id="p-ctrl-brightness">
+          <label>Brightness <span class="range-val" id="p-bright-val">0</span></label>
+          <input type="range" id="p-bright" min="-100" max="100" value="0"/>
+        </div>
+        <!-- Contrast controls -->
+        <div class="pp-control-group" id="p-ctrl-contrast">
+          <label>Contrast <span class="range-val" id="p-contrast-val">0</span></label>
+          <input type="range" id="p-contrast" min="-100" max="100" value="0"/>
+        </div>
+        <!-- Border controls -->
+        <div class="pp-control-group" id="p-ctrl-border">
+          <label>Border</label>
+          <div class="pp-row">
+            <span class="pp-label">Width (px)</span>
+            <input type="number" id="p-border-w" value="0" min="0" max="50" style="max-width:70px"/>
+            <span class="pp-label">Color</span>
+            <input type="color" id="p-border-c" value="#ffffff" class="pp-color-input"/>
+          </div>
+        </div>
+        <!-- Text controls -->
+        <div class="pp-control-group" id="p-ctrl-text">
+          <label>Add text overlay</label>
+          <div class="pp-row">
+            <input type="text" id="p-text-val" placeholder="Enter text..."/>
+          </div>
+          <div class="pp-row">
+            <span class="pp-label">Size</span>
+            <input type="number" id="p-text-size" value="24" min="8" max="120" style="max-width:60px"/>
+            <span class="pp-label">Color</span>
+            <input type="color" id="p-text-color" value="#ffffff" class="pp-color-input"/>
+            <button class="preset" id="p-text-add" style="background:var(--primary);color:#fff;border-color:var(--primary)">Add</button>
+          </div>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:.3rem">After adding, drag the text on the image to position it.</div>
+        </div>
+      </div>
+
+      <!-- Photo Size & Count Settings -->
+      <div class="pp-section visible" id="p-settings" style="display:block;margin-top:1rem">
+        <label style="display:block;font-size:.82rem;color:var(--text-muted);margin-bottom:.3rem">Photo Size</label>
+        <div class="presets" id="p-size-presets">
+          <div class="preset active" data-w="3.5" data-h="4.5">India 3.5×4.5cm</div>
+          <div class="preset" data-w="5.1" data-h="5.1">US 2×2in</div>
+          <div class="preset" data-w="3.5" data-h="4.5">UK 3.5×4.5cm</div>
+          <div class="preset" data-w="3.5" data-h="4.5">EU 3.5×4.5cm</div>
+          <div class="preset" data-w="3" data-h="4">China 3×4cm</div>
+          <div class="preset" data-w="4.5" data-h="3.5">Japan 4.5×3.5cm</div>
+          <div class="preset" data-w="0" data-h="0">Custom</div>
+        </div>
+        <div class="pp-row" id="p-custom-size" style="display:none;margin-top:.5rem">
+          <span class="pp-label">W (cm)</span>
+          <input type="number" id="p-cw" value="3.5" min="1" max="20" step="0.1" style="max-width:70px"/>
+          <span class="pp-label">H (cm)</span>
+          <input type="number" id="p-ch" value="4.5" min="1" max="20" step="0.1" style="max-width:70px"/>
+        </div>
+
+        <div class="pp-row" style="margin-top:.6rem">
+          <span class="pp-label">Number of photos</span>
+          <input type="number" id="p-count" value="8" min="1" max="100" style="max-width:70px"/>
+        </div>
+
+        <div class="pp-row" style="margin-top:.4rem">
+          <span class="pp-label">Spacing (mm)</span>
+          <input type="number" id="p-spacing" value="2" min="0" max="20" step="0.5" style="max-width:70px"/>
+          <span class="pp-label">Cut guides</span>
+          <select id="p-guides" style="max-width:110px">
+            <option value="lines">Grid lines</option>
+            <option value="corners">Corner marks</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+
+        <div class="pp-grid-info" id="p-grid-info"></div>
+
+        <button class="action-btn visible" id="p-generate" style="display:block">&#128247; Generate Passport Photos PDF</button>
+        <div class="progress-container" id="p-prog"><div class="progress-bar-bg"><div class="progress-bar" id="p-bar"></div></div><div class="progress-text" id="p-ptxt"></div></div>
+        <div class="status" id="p-status"></div>
+        <div class="pp-preview-pdf" id="p-pdf-preview" style="display:none"><canvas id="p-pdf-canvas"></canvas></div>
+        <a class="download-btn" id="p-dl" download>&#11015; Download Passport Photos PDF</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div>
+  <div class="social-links">
+    <a href="https://x.com/vstandsforvinay" target="_blank" rel="noopener" aria-label="Twitter/X">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      vstandsforvinay
+    </a>
+    <a href="https://instagram.com/vstandsforvinay" target="_blank" rel="noopener" aria-label="Instagram">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+      vstandsforvinay
+    </a>
+    <a href="https://facebook.com/vstandsforvinay" target="_blank" rel="noopener" aria-label="Facebook">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      vstandsforvinay
+    </a>
+    <a href="mailto:vstandsforvinay@gmail.com" aria-label="Email">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22,4 12,13 2,4"/></svg>
+      vstandsforvinay@gmail.com
+    </a>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
+
+window.addEventListener('load',function(){
+var pdfjsLib=window['pdfjs-dist/build/pdf'];
+if(!pdfjsLib){document.getElementById('loadingOverlay').innerHTML='<div style="color:var(--error);text-align:center;padding:2rem">Failed to load PDF.js.<br>Check your connection and reload.</div>';return;}
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+var jsPDF=window.jspdf.jsPDF;
+var overlay=document.getElementById('loadingOverlay');
+overlay.classList.add('hidden');setTimeout(function(){overlay.style.display='none';},300);
+
+// ---- Tab switching ----
+document.querySelectorAll('.tab').forEach(function(tab){
+  tab.addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
+    document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active')});
+    tab.classList.add('active');
+    document.getElementById('tab-'+tab.dataset.tab).classList.add('active');
+  });
+});
+
+function fmt(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function $(id){return document.getElementById(id);}
+
+// ---- Preview engine ----
+function PreviewController(canvasId,navId,prevBtnId,nextBtnId,infoId){
+  this.canvas=$(canvasId);this.ctx=this.canvas.getContext('2d');
+  this.nav=$(navId);this.prevBtn=$(prevBtnId);this.nextBtn=$(nextBtnId);this.info=$(infoId);
+  this.pdf=null;this.currentPage=1;this.totalPages=0;var self=this;
+  this.prevBtn.addEventListener('click',function(){if(self.currentPage>1){self.currentPage--;self.renderPage();}});
+  this.nextBtn.addEventListener('click',function(){if(self.currentPage<self.totalPages){self.currentPage++;self.renderPage();}});
+}
+PreviewController.prototype.load=async function(data){
+  this.pdf=await pdfjsLib.getDocument({data:new Uint8Array(data)}).promise;
+  this.totalPages=this.pdf.numPages;this.currentPage=1;
+  this.canvas.parentElement.classList.add('visible');this.nav.classList.add('visible');
+  await this.renderPage();
+};
+PreviewController.prototype.renderPage=async function(){
+  var page=await this.pdf.getPage(this.currentPage);var vp=page.getViewport({scale:1});
+  var cw=this.canvas.parentElement.clientWidth||400;var ds=cw/vp.width;var rs=ds*2;
+  var viewport=page.getViewport({scale:rs});
+  this.canvas.width=viewport.width;this.canvas.height=viewport.height;
+  this.canvas.style.width=cw+'px';this.canvas.style.height=Math.round(cw*(vp.height/vp.width))+'px';
+  this.ctx.fillStyle='#fff';this.ctx.fillRect(0,0,this.canvas.width,this.canvas.height);
+  await page.render({canvasContext:this.ctx,viewport:viewport}).promise;
+  this.info.textContent='Page '+this.currentPage+' of '+this.totalPages;
+  this.prevBtn.disabled=this.currentPage<=1;this.nextBtn.disabled=this.currentPage>=this.totalPages;
+};
+PreviewController.prototype.hide=function(){this.canvas.parentElement.classList.remove('visible');this.nav.classList.remove('visible');};
+
+var uPreview=new PreviewController('u-canvas','u-nav','u-prev','u-next','u-pinfo');
+var rPreview=new PreviewController('r-canvas','r-nav','r-prev','r-next','r-pinfo');
+
+// ============================================================
+// UNLOCK TAB
+// ============================================================
+(function(){
+  var drop=$('u-drop'),fileIn=$('u-file'),info=$('u-info'),fn=$('u-fn'),fs=$('u-fs'),
+      rm=$('u-rm'),pwField=$('u-pw-field'),pw=$('u-pw'),toggle=$('u-toggle'),
+      btn=$('u-btn'),prog=$('u-prog'),bar=$('u-bar'),ptxt=$('u-ptxt'),
+      status=$('u-status'),dl=$('u-dl'),file=null;
+  function show(el){el.classList.add('visible')}
+  function hide(el){el.classList.remove('visible')}
+  function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+  function setP(p,t){bar.style.width=p+'%';ptxt.textContent=t;}
+  function onFile(f){
+    if(!f||(!f.name.toLowerCase().endsWith('.pdf')&&f.type!=='application/pdf'))return;
+    file=f;fn.textContent=f.name;fs.textContent=fmt(f.size);
+    show(info);show(pwField);show(btn);drop.style.display='none';
+    status.className='status';hide(dl);hide(prog);uPreview.hide();pw.value='';pw.focus();
+  }
+  function reset(){file=null;fileIn.value='';hide(info);hide(pwField);hide(btn);hide(prog);hide(dl);status.className='status';drop.style.display='';uPreview.hide();pw.value='';}
+  fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+  drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+  drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+  drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+  rm.addEventListener('click',reset);
+  toggle.addEventListener('click',function(){var is=pw.type==='password';pw.type=is?'text':'password';toggle.innerHTML=is?'&#128584;':'&#128065;';});
+  pw.addEventListener('keydown',function(e){if(e.key==='Enter')btn.click();});
+  btn.addEventListener('click',async function(){
+    if(!file)return;var password=pw.value;
+    if(!password){setStatus('Please enter the password.','error');pw.focus();return;}
+    btn.disabled=true;btn.textContent='\u23F3 Processing...';show(prog);hide(dl);uPreview.hide();
+    status.className='status';setP(5,'Loading...');
+    try{
+      var ab=await file.arrayBuffer();setP(10,'Decrypting...');
+      var pdf=await pdfjsLib.getDocument({data:new Uint8Array(ab),password:password}).promise;
+      var total=pdf.numPages;setP(20,'Rendering '+total+' page(s)...');
+      var canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'),doc=null;
+      for(var i=1;i<=total;i++){
+        var page=await pdf.getPage(i);var vp=page.getViewport({scale:1});
+        var sc=Math.max(vp.width,vp.height)>1200?2:3;var viewport=page.getViewport({scale:sc});
+        canvas.width=viewport.width;canvas.height=viewport.height;
+        ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+        await page.render({canvasContext:ctx,viewport:viewport}).promise;
+        var img=canvas.toDataURL('image/jpeg',0.92);
+        var wPt=vp.width*.75,hPt=vp.height*.75;
+        if(i===1)doc=new jsPDF({orientation:wPt>hPt?'l':'p',unit:'pt',format:[wPt,hPt]});
+        else doc.addPage([wPt,hPt],wPt>hPt?'l':'p');
+        doc.addImage(img,'JPEG',0,0,wPt,hPt);
+        try{var tc=await page.getTextContent();doc.setTextColor(0,0,0);doc.internal.write('3 Tr');
+          for(var t=0;t<tc.items.length;t++){var it=tc.items[t];if(!it.str||!it.str.trim())continue;
+            var tx=it.transform;var fz=Math.sqrt(tx[2]*tx[2]+tx[3]*tx[3])*.75;
+            if(fz<1)fz=Math.sqrt(tx[0]*tx[0]+tx[1]*tx[1])*.75;if(fz<1)continue;
+            doc.setFontSize(fz);doc.text(it.str,tx[4]*.75,hPt-tx[5]*.75,{renderingMode:'invisible'});}
+          doc.internal.write('0 Tr');
+        }catch(e){}
+        setP(20+Math.round(i/total*70),'Page '+i+'/'+total);
+      }
+      setP(95,'Finalizing...');
+      var blob=doc.output('blob');var url=URL.createObjectURL(blob);
+      var name=file.name.replace(/\.pdf$/i,'');
+      dl.href=url;dl.download=name+'_unlocked.pdf';show(dl);
+      var resultBuf=await blob.arrayBuffer();await uPreview.load(resultBuf);
+      setP(100,'Done!');setStatus('Unlocked '+total+' page(s)! ('+fmt(blob.size)+')','success');
+    }catch(err){console.error(err);
+      if(err.name==='PasswordException'||(err.message&&err.message.toLowerCase().indexOf('password')!==-1))setStatus('Incorrect password.','error');
+      else setStatus('Error: '+(err.message||err),'error');hide(prog);
+    }finally{btn.disabled=false;btn.textContent='\uD83D\uDD13 Unlock PDF';}
+  });
+})();
+
+// ============================================================
+// RESIZE TAB
+// ============================================================
+(function(){
+  var drop=$('r-drop'),fileIn=$('r-file'),info=$('r-info'),fn=$('r-fn'),fs=$('r-fs'),
+      rm=$('r-rm'),pwField=$('r-pw-field'),pw=$('r-pw'),
+      targetField=$('r-target-field'),targetIn=$('r-target'),
+      btn=$('r-btn'),prog=$('r-prog'),bar=$('r-bar'),ptxt=$('r-ptxt'),
+      status=$('r-status'),dl=$('r-dl'),imgPreview=$('r-img-preview'),imgEl=$('r-img'),
+      file=null,fileType='unknown';
+  function show(el){el.classList.add('visible')}
+  function hide(el){el.classList.remove('visible')}
+  function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+  function setP(p,t){bar.style.width=p+'%';ptxt.textContent=t;}
+  var imgExts=['.jpg','.jpeg','.png','.webp','.bmp'];
+  function isImage(f){var n=f.name.toLowerCase();return imgExts.some(function(e){return n.endsWith(e)})||f.type.startsWith('image/');}
+  document.querySelectorAll('#r-presets .preset').forEach(function(p){
+    p.addEventListener('click',function(){document.querySelectorAll('#r-presets .preset').forEach(function(x){x.classList.remove('active')});p.classList.add('active');targetIn.value=p.dataset.kb;});
+  });
+  targetIn.addEventListener('input',function(){document.querySelectorAll('#r-presets .preset').forEach(function(x){x.classList.toggle('active',x.dataset.kb===targetIn.value);});});
+  function onFile(f){
+    if(!f)return;var isPdf=f.name.toLowerCase().endsWith('.pdf')||f.type==='application/pdf';var isImg=isImage(f);
+    if(!isPdf&&!isImg){setStatus('Please select a PDF or image file.','error');return;}
+    file=f;fileType=isPdf?'pdf':'image';fn.textContent=f.name;fs.textContent=fmt(f.size);
+    show(info);show(targetField);show(btn);drop.style.display='none';
+    status.className='status';hide(dl);hide(prog);rPreview.hide();imgPreview.classList.remove('visible');
+    if(isPdf){show(pwField);}else{hide(pwField);}
+  }
+  function reset(){file=null;fileType='unknown';fileIn.value='';hide(info);hide(pwField);hide(targetField);hide(btn);hide(prog);hide(dl);status.className='status';drop.style.display='';rPreview.hide();imgPreview.classList.remove('visible');}
+  fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+  drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+  drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+  drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+  rm.addEventListener('click',reset);
+  async function resizeImage(file,targetBytes){
+    return new Promise(function(resolve,reject){
+      var img=new Image();img.onload=function(){
+        var ow=img.width,oh=img.height;
+        var qualities=[.92,.8,.65,.5,.4,.3,.2,.12,.08,.05];var scales=[1,.85,.7,.55,.4,.3,.2,.15,.1];
+        for(var si=0;si<scales.length;si++){for(var qi=0;qi<qualities.length;qi++){
+          var sc=scales[si],q=qualities[qi];var w=Math.round(ow*sc),h=Math.round(oh*sc);
+          if(w<10||h<10)continue;var c=document.createElement('canvas');c.width=w;c.height=h;
+          var cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,w,h);cx.drawImage(img,0,0,w,h);
+          var dataUrl=c.toDataURL('image/jpeg',q);var b64=dataUrl.split(',')[1];var size=Math.round(b64.length*3/4);
+          if(size<=targetBytes){c.toBlob(function(blob){resolve({blob:blob,w:w,h:h,q:q,sc:sc});},'image/jpeg',q);return;}
+        }}
+        var c=document.createElement('canvas');var w=Math.round(ow*.1),h=Math.round(oh*.1);
+        c.width=Math.max(w,10);c.height=Math.max(h,10);var cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);
+        cx.drawImage(img,0,0,c.width,c.height);c.toBlob(function(blob){resolve({blob:blob,w:c.width,h:c.height,q:.05,sc:.1});},'image/jpeg',.05);
+      };img.onerror=function(){reject(new Error('Failed to load image'));};img.src=URL.createObjectURL(file);
+    });
+  }
+  btn.addEventListener('click',async function(){
+    if(!file)return;var targetKB=parseInt(targetIn.value,10);
+    if(!targetKB||targetKB<5){setStatus('Enter a valid target size (min 5 KB).','error');return;}
+    var targetBytes=targetKB*1024;btn.disabled=true;btn.textContent='\u23F3 Resizing...';show(prog);hide(dl);
+    rPreview.hide();imgPreview.classList.remove('visible');status.className='status';setP(5,'Loading...');
+    try{
+      if(fileType==='image'){
+        setP(20,'Compressing image...');var result=await resizeImage(file,targetBytes);setP(90,'Done!');
+        var url=URL.createObjectURL(result.blob);var name=file.name.replace(/\.[^.]+$/,'');
+        dl.href=url;dl.download=name+'_resized.jpg';show(dl);imgEl.src=url;imgPreview.classList.add('visible');
+        setP(100,'Done!');var hit=result.blob.size<=targetBytes;
+        setStatus(fmt(file.size)+' \u2192 '+fmt(result.blob.size)+' ('+result.w+'\u00d7'+result.h+', quality '+Math.round(result.q*100)+'%)'+(hit?'':' \u2014 smallest possible'),hit?'success':'error');
+      }else{
+        var ab=await file.arrayBuffer();var password=pw.value||undefined;var loadOpts={data:new Uint8Array(ab)};
+        if(password)loadOpts.password=password;var pdf=await pdfjsLib.getDocument(loadOpts).promise;
+        var total=pdf.numPages;setP(10,'Loaded '+total+' page(s)...');
+        var qualities=[.92,.8,.65,.55,.45,.35,.25,.15,.08];var scales=[2,1.5,1,.75,.5,.35];var bestBlob=null;
+        outer:for(var si=0;si<scales.length;si++){for(var qi=0;qi<qualities.length;qi++){
+          var q=qualities[qi],sc=scales[si];
+          setP(10+Math.round((si*qualities.length+qi)/(scales.length*qualities.length)*60),'scale='+sc.toFixed(1)+'x quality='+Math.round(q*100)+'%');
+          var doc=null;for(var i=1;i<=total;i++){var page=await pdf.getPage(i);var vp=page.getViewport({scale:1});
+            var viewport=page.getViewport({scale:sc});var c=document.createElement('canvas');c.width=viewport.width;c.height=viewport.height;
+            var cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);
+            await page.render({canvasContext:cx,viewport:viewport}).promise;var img=c.toDataURL('image/jpeg',q);
+            var wPt=vp.width*.75,hPt=vp.height*.75;
+            if(i===1)doc=new jsPDF({orientation:wPt>hPt?'l':'p',unit:'pt',format:[wPt,hPt]});
+            else doc.addPage([wPt,hPt],wPt>hPt?'l':'p');doc.addImage(img,'JPEG',0,0,wPt,hPt);}
+          var blob=doc.output('blob');bestBlob=blob;if(blob.size<=targetBytes)break outer;
+        }}
+        if(!bestBlob)throw new Error('Could not generate PDF');setP(90,'Preparing download...');
+        var url=URL.createObjectURL(bestBlob);var name=file.name.replace(/\.pdf$/i,'');
+        dl.href=url;dl.download=name+'_resized.pdf';show(dl);
+        var resultBuf=await bestBlob.arrayBuffer();await rPreview.load(resultBuf);setP(100,'Done!');
+        var hit=bestBlob.size<=targetBytes;
+        setStatus(fmt(file.size)+' \u2192 '+fmt(bestBlob.size)+(hit?'':' (could not reach target)'),hit?'success':'error');
+      }
+    }catch(err){console.error(err);
+      if(err.name==='PasswordException'||(err.message&&err.message.toLowerCase().indexOf('password')!==-1))setStatus('Encrypted PDF. Enter password above.','error');
+      else setStatus('Error: '+(err.message||err),'error');hide(prog);
+    }finally{btn.disabled=false;btn.textContent='\uD83D\uDD13 Resize';}
+  });
+})();
+
+// ============================================================
+// PASSPORT PHOTO TAB
+// ============================================================
+(function(){
+  var drop=$('p-drop'),fileIn=$('p-file'),editorSection=$('p-editor-section'),
+      fn=$('p-fn'),fs=$('p-fs'),rm=$('p-rm'),
+      canvas=$('p-canvas'),ctx=canvas.getContext('2d'),
+      cropOverlay=$('p-crop-overlay'),cropRect=$('p-crop-rect'),
+      genBtn=$('p-generate'),prog=$('p-prog'),bar=$('p-bar'),ptxt=$('p-ptxt'),
+      status=$('p-status'),dl=$('p-dl'),
+      pdfPreview=$('p-pdf-preview'),pdfCanvas=$('p-pdf-canvas'),
+      gridInfo=$('p-grid-info');
+
+  // State
+  var origImg=null; // original Image element
+  var editCanvas=document.createElement('canvas'); // working copy
+  var editCtx=editCanvas.getContext('2d');
+  var brightness=0,contrast=0,borderW=0,borderColor='#ffffff';
+  var textOverlays=[]; // [{text,size,color,x,y}]
+  var draggingText=-1,dragOffX=0,dragOffY=0;
+  var activeTool='';
+  var displayScale=1; // ratio of displayed canvas to actual image
+
+  // Crop state
+  var cropActive=false;
+  var crop={x:0,y:0,w:0,h:0}; // in display coords
+  var cropDragging='',cropStartX=0,cropStartY=0,cropStartRect={};
+
+  function show(el){el.classList.add('visible')}
+  function hide(el){el.classList.remove('visible')}
+  function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+  function setP(p,t){bar.style.width=p+'%';ptxt.textContent=t;}
+
+  // ---- File handling ----
+  function onFile(f){
+    if(!f||!f.type.startsWith('image/')){setStatus('Please select an image file.','error');return;}
+    var img=new Image();
+    img.onload=function(){
+      origImg=img;brightness=0;contrast=0;borderW=0;borderColor='#ffffff';textOverlays=[];
+      $('p-bright').value=0;$('p-bright-val').textContent='0';
+      $('p-contrast').value=0;$('p-contrast-val').textContent='0';
+      $('p-border-w').value=0;$('p-border-c').value='#ffffff';
+      fn.textContent=f.name;fs.textContent=img.width+'×'+img.height+' · '+fmt(f.size);
+      drop.style.display='none';editorSection.classList.add('visible');
+      status.className='status';hide(dl);pdfPreview.style.display='none';
+      // Init edit canvas
+      editCanvas.width=img.width;editCanvas.height=img.height;
+      editCtx.drawImage(img,0,0);
+      renderEditor();
+      updateGridInfo();
+    };
+    img.onerror=function(){setStatus('Failed to load image.','error');};
+    img.src=URL.createObjectURL(f);
+  }
+
+  function reset(){
+    origImg=null;fileIn.value='';drop.style.display='';
+    editorSection.classList.remove('visible');status.className='status';
+    hide(dl);pdfPreview.style.display='none';cropOverlay.style.display='none';
+    activeTool='';textOverlays=[];
+    document.querySelectorAll('#p-toolbar button[data-tool]').forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.pp-control-group').forEach(function(g){g.classList.remove('visible');});
+  }
+
+  fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+  drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+  drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+  drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+  rm.addEventListener('click',reset);
+
+  // ---- Render editor canvas ----
+  function renderEditor(){
+    if(!origImg)return;
+    var w=editCanvas.width,h=editCanvas.height;
+    // Apply brightness/contrast to original
+    editCanvas.width=origImg.width;editCanvas.height=origImg.height;
+    editCtx.filter='brightness('+(100+brightness)+'%) contrast('+(100+contrast)+'%)';
+    editCtx.drawImage(origImg,0,0);
+    editCtx.filter='none';
+
+    // Draw border (inset so it's fully visible)
+    if(borderW>0){
+      editCtx.save();
+      editCtx.strokeStyle=borderColor;
+      editCtx.lineWidth=borderW;
+      var bOff=borderW/2; // inset by half the line width
+      editCtx.strokeRect(bOff,bOff,editCanvas.width-borderW,editCanvas.height-borderW);
+      editCtx.restore();
+    }
+
+    // Draw text overlays
+    for(var i=0;i<textOverlays.length;i++){
+      var t=textOverlays[i];
+      editCtx.font='bold '+t.size+'px sans-serif';
+      editCtx.fillStyle=t.color;
+      editCtx.textBaseline='top';
+      editCtx.fillText(t.text,t.x,t.y);
+    }
+
+    // Render to display canvas
+    var wrap=$('p-editor-wrap');
+    var maxW=wrap.clientWidth||400;
+    displayScale=maxW/editCanvas.width;
+    if(displayScale>1)displayScale=1;
+    canvas.width=Math.round(editCanvas.width*displayScale);
+    canvas.height=Math.round(editCanvas.height*displayScale);
+    canvas.style.width=canvas.width+'px';
+    canvas.style.height=canvas.height+'px';
+    ctx.drawImage(editCanvas,0,0,canvas.width,canvas.height);
+
+    // Draw text overlay indicators (small handles)
+    for(var i=0;i<textOverlays.length;i++){
+      var t=textOverlays[i];
+      var dx=t.x*displayScale,dy=t.y*displayScale;
+      ctx.strokeStyle='rgba(233,69,96,0.6)';ctx.lineWidth=1;
+      ctx.setLineDash([3,3]);
+      var metrics=ctx.measureText(t.text);
+      ctx.font='bold '+Math.round(t.size*displayScale)+'px sans-serif';
+      var tw=ctx.measureText(t.text).width;
+      ctx.strokeRect(dx-2,dy-2,tw+4,t.size*displayScale+4);
+      ctx.setLineDash([]);
+    }
+  }
+
+  // ---- Tool switching ----
+  document.querySelectorAll('#p-toolbar button[data-tool]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var tool=btn.dataset.tool;
+      var wasActive=btn.classList.contains('active');
+      // Deactivate all
+      document.querySelectorAll('#p-toolbar button[data-tool]').forEach(function(b){b.classList.remove('active');});
+      document.querySelectorAll('.pp-control-group').forEach(function(g){g.classList.remove('visible');});
+      cropOverlay.style.display='none';cropActive=false;
+      if(wasActive){activeTool='';return;}
+      activeTool=tool;btn.classList.add('active');
+      var ctrl=$('p-ctrl-'+tool);if(ctrl)ctrl.classList.add('visible');
+      if(tool==='crop')initCrop();
+    });
+  });
+
+  // Reset button
+  $('p-tool-reset').addEventListener('click',function(){
+    if(!origImg)return;
+    brightness=0;contrast=0;borderW=0;borderColor='#ffffff';textOverlays=[];
+    $('p-bright').value=0;$('p-bright-val').textContent='0';
+    $('p-contrast').value=0;$('p-contrast-val').textContent='0';
+    $('p-border-w').value=0;$('p-border-c').value='#ffffff';
+    editCanvas.width=origImg.width;editCanvas.height=origImg.height;
+    editCtx.drawImage(origImg,0,0);
+    renderEditor();
+  });
+
+  // ---- Brightness/Contrast ----
+  $('p-bright').addEventListener('input',function(){brightness=parseInt(this.value);$('p-bright-val').textContent=this.value;renderEditor();});
+  $('p-contrast').addEventListener('input',function(){contrast=parseInt(this.value);$('p-contrast-val').textContent=this.value;renderEditor();});
+
+  // ---- Border ----
+  $('p-border-w').addEventListener('input',function(){borderW=parseInt(this.value)||0;renderEditor();});
+  $('p-border-c').addEventListener('input',function(){borderColor=this.value;renderEditor();});
+
+  // ---- Text overlay ----
+  $('p-text-add').addEventListener('click',function(){
+    var txt=$('p-text-val').value.trim();if(!txt)return;
+    var sz=parseInt($('p-text-size').value)||24;
+    var col=$('p-text-color').value;
+    textOverlays.push({text:txt,size:sz,color:col,x:Math.round(editCanvas.width*0.1),y:Math.round(editCanvas.height*0.1)});
+    $('p-text-val').value='';renderEditor();
+  });
+
+  // ---- Text dragging on canvas ----
+  function getCanvasPos(e){
+    var rect=canvas.getBoundingClientRect();
+    var clientX,clientY;
+    if(e.touches){clientX=e.touches[0].clientX;clientY=e.touches[0].clientY;}
+    else{clientX=e.clientX;clientY=e.clientY;}
+    return{x:(clientX-rect.left)/displayScale,y:(clientY-rect.top)/displayScale};
+  }
+
+  function findTextAt(pos){
+    // Check from last to first (top-most)
+    for(var i=textOverlays.length-1;i>=0;i--){
+      var t=textOverlays[i];
+      editCtx.font='bold '+t.size+'px sans-serif';
+      var tw=editCtx.measureText(t.text).width;
+      if(pos.x>=t.x&&pos.x<=t.x+tw&&pos.y>=t.y&&pos.y<=t.y+t.size*1.2)return i;
+    }
+    return -1;
+  }
+
+  canvas.addEventListener('mousedown',function(e){if(cropActive)return;var pos=getCanvasPos(e);var idx=findTextAt(pos);if(idx>=0){draggingText=idx;dragOffX=pos.x-textOverlays[idx].x;dragOffY=pos.y-textOverlays[idx].y;e.preventDefault();}});
+  canvas.addEventListener('touchstart',function(e){if(cropActive)return;var pos=getCanvasPos(e);var idx=findTextAt(pos);if(idx>=0){draggingText=idx;dragOffX=pos.x-textOverlays[idx].x;dragOffY=pos.y-textOverlays[idx].y;e.preventDefault();}},{passive:false});
+  function onDragMove(e){if(draggingText<0)return;e.preventDefault();var pos=getCanvasPos(e);textOverlays[draggingText].x=Math.round(pos.x-dragOffX);textOverlays[draggingText].y=Math.round(pos.y-dragOffY);renderEditor();}
+  function onDragEnd(){draggingText=-1;}
+  canvas.addEventListener('mousemove',onDragMove);canvas.addEventListener('touchmove',onDragMove,{passive:false});
+  canvas.addEventListener('mouseup',onDragEnd);canvas.addEventListener('touchend',onDragEnd);
+
+  // ---- Crop ----
+  function initCrop(){
+    cropActive=true;cropOverlay.style.display='block';
+    // Default crop rect: centered, matching passport aspect ratio
+    var pw=getPhotoW(),ph=getPhotoH();
+    var aspect=pw/ph;
+    var cw=canvas.width,ch=canvas.height;
+    var rh=ch*0.8,rw=rh*aspect;
+    if(rw>cw*0.8){rw=cw*0.8;rh=rw/aspect;}
+    crop.w=Math.round(rw);crop.h=Math.round(rh);
+    crop.x=Math.round((cw-crop.w)/2);crop.y=Math.round((ch-crop.h)/2);
+    updateCropRect();
+  }
+
+  function updateCropRect(){
+    cropRect.style.left=crop.x+'px';cropRect.style.top=crop.y+'px';
+    cropRect.style.width=crop.w+'px';cropRect.style.height=crop.h+'px';
+  }
+
+  // Crop dragging
+  function getCropPos(e){
+    var rect=cropOverlay.getBoundingClientRect();
+    var cx,cy;if(e.touches){cx=e.touches[0].clientX;cy=e.touches[0].clientY;}else{cx=e.clientX;cy=e.clientY;}
+    return{x:cx-rect.left,y:cy-rect.top};
+  }
+
+  function startCropDrag(type,e){
+    e.preventDefault();e.stopPropagation();
+    cropDragging=type;var pos=getCropPos(e);
+    cropStartX=pos.x;cropStartY=pos.y;
+    cropStartRect={x:crop.x,y:crop.y,w:crop.w,h:crop.h};
+  }
+
+  cropRect.addEventListener('mousedown',function(e){startCropDrag('move',e);});
+  cropRect.addEventListener('touchstart',function(e){startCropDrag('move',e);},{passive:false});
+  $('p-crop-nw').addEventListener('mousedown',function(e){startCropDrag('nw',e);});
+  $('p-crop-nw').addEventListener('touchstart',function(e){startCropDrag('nw',e);},{passive:false});
+  $('p-crop-ne').addEventListener('mousedown',function(e){startCropDrag('ne',e);});
+  $('p-crop-ne').addEventListener('touchstart',function(e){startCropDrag('ne',e);},{passive:false});
+  $('p-crop-sw').addEventListener('mousedown',function(e){startCropDrag('sw',e);});
+  $('p-crop-sw').addEventListener('touchstart',function(e){startCropDrag('sw',e);},{passive:false});
+  $('p-crop-se').addEventListener('mousedown',function(e){startCropDrag('se',e);});
+  $('p-crop-se').addEventListener('touchstart',function(e){startCropDrag('se',e);},{passive:false});
+
+  function onCropMove(e){
+    if(!cropDragging)return;e.preventDefault();
+    var pos=getCropPos(e);var dx=pos.x-cropStartX,dy=pos.y-cropStartY;
+    var s=cropStartRect,cw=canvas.width,ch=canvas.height;
+    if(cropDragging==='move'){
+      crop.x=Math.max(0,Math.min(cw-s.w,s.x+dx));
+      crop.y=Math.max(0,Math.min(ch-s.h,s.y+dy));
+    }else{
+      // Resize handles
+      var nx=s.x,ny=s.y,nw=s.w,nh=s.h;
+      if(cropDragging.indexOf('w')===0||cropDragging==='nw'||cropDragging==='sw'){nx=s.x+dx;nw=s.w-dx;}
+      if(cropDragging.indexOf('e')>-1||cropDragging==='ne'||cropDragging==='se'){nw=s.w+dx;}
+      if(cropDragging.indexOf('n')===0||cropDragging==='nw'||cropDragging==='ne'){ny=s.y+dy;nh=s.h-dy;}
+      if(cropDragging.indexOf('s')>-1||cropDragging==='sw'||cropDragging==='se'){nh=s.h+dy;}
+      if(nw<30)nw=30;if(nh<30)nh=30;
+      if(nx<0){nw+=nx;nx=0;}if(ny<0){nh+=ny;ny=0;}
+      if(nx+nw>cw)nw=cw-nx;if(ny+nh>ch)nh=ch-ny;
+      crop.x=Math.round(nx);crop.y=Math.round(ny);crop.w=Math.round(nw);crop.h=Math.round(nh);
+    }
+    updateCropRect();
+  }
+  document.addEventListener('mousemove',onCropMove);document.addEventListener('touchmove',onCropMove,{passive:false});
+  document.addEventListener('mouseup',function(){cropDragging='';});document.addEventListener('touchend',function(){cropDragging='';});
+
+  $('p-crop-apply').addEventListener('click',function(){
+    if(!origImg)return;
+    // Convert display crop coords to actual image coords
+    var sx=Math.round(crop.x/displayScale),sy=Math.round(crop.y/displayScale);
+    var sw=Math.round(crop.w/displayScale),sh=Math.round(crop.h/displayScale);
+    sx=Math.max(0,sx);sy=Math.max(0,sy);
+    if(sx+sw>editCanvas.width)sw=editCanvas.width-sx;
+    if(sy+sh>editCanvas.height)sh=editCanvas.height-sy;
+    // Get cropped image data
+    var tempCanvas=document.createElement('canvas');tempCanvas.width=sw;tempCanvas.height=sh;
+    var tempCtx=tempCanvas.getContext('2d');
+    tempCtx.drawImage(editCanvas,sx,sy,sw,sh,0,0,sw,sh);
+    // Replace origImg with cropped version
+    var newImg=new Image();
+    newImg.onload=function(){
+      origImg=newImg;editCanvas.width=sw;editCanvas.height=sh;
+      editCtx.drawImage(newImg,0,0);
+      // Adjust text overlay positions
+      for(var i=0;i<textOverlays.length;i++){textOverlays[i].x-=sx;textOverlays[i].y-=sy;}
+      cropOverlay.style.display='none';cropActive=false;
+      activeTool='';
+      document.querySelectorAll('#p-toolbar button[data-tool]').forEach(function(b){b.classList.remove('active');});
+      document.querySelectorAll('.pp-control-group').forEach(function(g){g.classList.remove('visible');});
+      renderEditor();
+    };
+    newImg.src=tempCanvas.toDataURL('image/png');
+  });
+
+  $('p-crop-cancel').addEventListener('click',function(){
+    cropOverlay.style.display='none';cropActive=false;activeTool='';
+    document.querySelectorAll('#p-toolbar button[data-tool]').forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.pp-control-group').forEach(function(g){g.classList.remove('visible');});
+  });
+
+  // ---- Photo size presets ----
+  var photoW=3.5,photoH=4.5; // cm
+  document.querySelectorAll('#p-size-presets .preset').forEach(function(p){
+    p.addEventListener('click',function(){
+      document.querySelectorAll('#p-size-presets .preset').forEach(function(x){x.classList.remove('active');});
+      p.classList.add('active');
+      var w=parseFloat(p.dataset.w),h=parseFloat(p.dataset.h);
+      if(w===0&&h===0){$('p-custom-size').style.display='flex';photoW=parseFloat($('p-cw').value)||3.5;photoH=parseFloat($('p-ch').value)||4.5;}
+      else{$('p-custom-size').style.display='none';photoW=w;photoH=h;}
+      updateGridInfo();
+    });
+  });
+  $('p-cw').addEventListener('input',function(){photoW=parseFloat(this.value)||3.5;updateGridInfo();});
+  $('p-ch').addEventListener('input',function(){photoH=parseFloat(this.value)||4.5;updateGridInfo();});
+  $('p-count').addEventListener('input',updateGridInfo);
+  $('p-spacing').addEventListener('input',updateGridInfo);
+
+  function getPhotoW(){return photoW;}
+  function getPhotoH(){return photoH;}
+
+  // A4 dimensions in cm
+  var A4W=21.0,A4H=29.7,MARGIN=0.5; // 5mm margin
+
+  function updateGridInfo(){
+    var pw=getPhotoW(),ph=getPhotoH();
+    var spacing=parseFloat($('p-spacing').value)||0;
+    var spacingCm=spacing/10; // mm to cm
+    var count=parseInt($('p-count').value)||1;
+
+    var usableW=A4W-2*MARGIN;
+    var usableH=A4H-2*MARGIN;
+
+    var cols=Math.floor((usableW+spacingCm)/(pw+spacingCm));
+    if(cols<1)cols=1;
+    var rows=Math.floor((usableH+spacingCm)/(ph+spacingCm));
+    if(rows<1)rows=1;
+    var perPage=cols*rows;
+    var pages=Math.ceil(count/perPage);
+
+    gridInfo.innerHTML='<span>'+pw+'×'+ph+' cm</span> · '+cols+' per row × '+rows+' rows = <span>'+perPage+'</span> per page · <span>'+pages+'</span> page(s) for '+count+' photos';
+  }
+
+  // ---- Generate PDF ----
+  genBtn.addEventListener('click',async function(){
+    if(!origImg){setStatus('Please upload a photo first.','error');return;}
+
+    var pw=getPhotoW(),ph=getPhotoH();
+    var spacing=parseFloat($('p-spacing').value)||0;
+    var spacingCm=spacing/10;
+    var count=parseInt($('p-count').value)||1;
+    var guideType=$('p-guides').value;
+
+    if(pw<0.5||ph<0.5){setStatus('Photo size too small.','error');return;}
+    if(count<1||count>200){setStatus('Enter 1-200 photos.','error');return;}
+
+    genBtn.disabled=true;genBtn.textContent='\u23F3 Generating...';
+    show(prog);hide(dl);pdfPreview.style.display='none';status.className='status';
+    setP(5,'Preparing...');
+
+    try{
+      // Get the final edited image at full resolution
+      renderEditor(); // ensure editCanvas is up to date
+      var finalCanvas=document.createElement('canvas');
+      finalCanvas.width=editCanvas.width;finalCanvas.height=editCanvas.height;
+      var fCtx=finalCanvas.getContext('2d');
+      fCtx.drawImage(editCanvas,0,0);
+
+      // Convert to high-quality JPEG data URL
+      var imgDataUrl=finalCanvas.toDataURL('image/jpeg',0.95);
+
+      setP(15,'Calculating layout...');
+
+      // A4 in points (1cm = 28.3465pt)
+      var CM2PT=28.3465;
+      var pageW=A4W*CM2PT,pageH=A4H*CM2PT;
+      var marginPt=MARGIN*CM2PT;
+      var photoWPt=pw*CM2PT,photoHPt=ph*CM2PT;
+      var spacingPt=spacingCm*CM2PT;
+
+      var usableW=pageW-2*marginPt;
+      var usableH=pageH-2*marginPt;
+
+      var cols=Math.floor((usableW+spacingPt)/(photoWPt+spacingPt));
+      if(cols<1)cols=1;
+      var rows=Math.floor((usableH+spacingPt)/(photoHPt+spacingPt));
+      if(rows<1)rows=1;
+      var perPage=cols*rows;
+      var totalPages=Math.ceil(count/perPage);
+
+      // Center the grid on the page
+      var gridW=cols*photoWPt+(cols-1)*spacingPt;
+      var gridH=rows*photoHPt+(rows-1)*spacingPt;
+      var offsetX=(pageW-gridW)/2;
+      var offsetY=(pageH-gridH)/2;
+
+      var doc=new jsPDF({orientation:'p',unit:'pt',format:'a4'});
+      var placed=0;
+
+      for(var pg=0;pg<totalPages;pg++){
+        if(pg>0)doc.addPage('a4','p');
+        setP(15+Math.round(pg/totalPages*70),'Page '+(pg+1)+'/'+totalPages);
+
+        for(var row=0;row<rows&&placed<count;row++){
+          for(var col=0;col<cols&&placed<count;col++){
+            var x=offsetX+col*(photoWPt+spacingPt);
+            var y=offsetY+row*(photoHPt+spacingPt);
+
+            doc.addImage(imgDataUrl,'JPEG',x,y,photoWPt,photoHPt);
+            placed++;
+          }
+        }
+
+        // Draw cut guides — only around cells that have photos
+        var photosOnThisPage=Math.min(perPage,count-(pg*perPage));
+        var filledRows=Math.ceil(photosOnThisPage/cols);
+        var lastRowCols=photosOnThisPage-(filledRows-1)*cols;
+
+        if(guideType==='lines'){
+          doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
+          for(var row=0;row<filledRows;row++){
+            var colsInRow=(row<filledRows-1)?cols:lastRowCols;
+            for(var col=0;col<colsInRow;col++){
+              var x=offsetX+col*(photoWPt+spacingPt);
+              var y=offsetY+row*(photoHPt+spacingPt);
+              // Draw 4 edges of this photo cell
+              doc.line(x,y,x+photoWPt,y); // top
+              doc.line(x,y+photoHPt,x+photoWPt,y+photoHPt); // bottom
+              doc.line(x,y,x,y+photoHPt); // left
+              doc.line(x+photoWPt,y,x+photoWPt,y+photoHPt); // right
+            }
+          }
+        }else if(guideType==='corners'){
+          doc.setDrawColor(180,180,180);doc.setLineWidth(0.4);
+          var markLen=8;
+          for(var row=0;row<filledRows;row++){
+            var colsInRow=(row<filledRows-1)?cols:lastRowCols;
+            for(var col=0;col<colsInRow;col++){
+              var x=offsetX+col*(photoWPt+spacingPt);
+              var y=offsetY+row*(photoHPt+spacingPt);
+              doc.line(x-2,y,x+markLen,y);doc.line(x,y-2,x,y+markLen);
+              doc.line(x+photoWPt+2,y,x+photoWPt-markLen,y);doc.line(x+photoWPt,y-2,x+photoWPt,y+markLen);
+              doc.line(x-2,y+photoHPt,x+markLen,y+photoHPt);doc.line(x,y+photoHPt+2,x,y+photoHPt-markLen);
+              doc.line(x+photoWPt+2,y+photoHPt,x+photoWPt-markLen,y+photoHPt);doc.line(x+photoWPt,y+photoHPt+2,x+photoWPt,y+photoHPt-markLen);
+            }
+          }
+        }
+
+        // Page footer
+        doc.setFontSize(7);doc.setTextColor(180,180,180);
+        doc.text(pw+'×'+ph+' cm · Page '+(pg+1)+'/'+totalPages,pageW/2,pageH-marginPt/2,{align:'center'});
+      }
+
+      setP(90,'Finalizing...');
+      var blob=doc.output('blob');
+      var url=URL.createObjectURL(blob);
+      dl.href=url;dl.download='passport_photos_'+pw+'x'+ph+'cm.pdf';
+      show(dl);
+
+      // Show preview
+      pdfPreview.style.display='block';
+      var previewBuf=await blob.arrayBuffer();
+      var previewPdf=await pdfjsLib.getDocument({data:new Uint8Array(previewBuf)}).promise;
+      var page1=await previewPdf.getPage(1);
+      var vp=page1.getViewport({scale:1});
+      var prevW=pdfPreview.clientWidth||400;
+      var prevScale=(prevW/vp.width)*2;
+      var prevVp=page1.getViewport({scale:prevScale});
+      pdfCanvas.width=prevVp.width;pdfCanvas.height=prevVp.height;
+      pdfCanvas.style.width=prevW+'px';
+      pdfCanvas.style.height=Math.round(prevW*(vp.height/vp.width))+'px';
+      var pCtx=pdfCanvas.getContext('2d');
+      pCtx.fillStyle='#fff';pCtx.fillRect(0,0,pdfCanvas.width,pdfCanvas.height);
+      await page1.render({canvasContext:pCtx,viewport:prevVp}).promise;
+
+      setP(100,'Done!');
+      setStatus(placed+' photos on '+totalPages+' page(s) · '+fmt(blob.size),'success');
+
+    }catch(err){
+      console.error(err);setStatus('Error: '+(err.message||err),'error');hide(prog);
+    }finally{genBtn.disabled=false;genBtn.textContent='\uD83D\uDCF7 Generate Passport Photos PDF';}
+  });
+
+  // Initial grid info
+  updateGridInfo();
+})();
+
+});
+</script>
+</body>
+</html>
