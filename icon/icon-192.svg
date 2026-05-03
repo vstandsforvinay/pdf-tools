@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="34" fill="#1a1a2e"/>
+  <rect x="62" y="85" width="68" height="54" rx="8" fill="#e94560"/>
+  <path d="M76 85V68a20 20 0 0 1 40 0" stroke="#e94560" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <line x1="116" y1="68" x2="122" y2="56" stroke="#e94560" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="96" cy="106" r="7" fill="#1a1a2e"/>
+  <polygon points="92,110 96,124 100,110" fill="#1a1a2e"/>
+  <text x="96" y="172" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="20">PDF</text>
+</svg>
