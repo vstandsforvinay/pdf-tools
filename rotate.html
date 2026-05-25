@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>Rotate / Reorder PDF — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+<style>
+.page-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.6rem;margin-top:.8rem}
+.page-thumb{background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:grab;position:relative;transition:border-color .2s}
+.page-thumb:hover{border-color:var(--primary)}
+.page-thumb.dragging{opacity:.5}
+.page-thumb canvas{display:block;width:100%;height:auto}
+.page-thumb .pt-bar{display:flex;align-items:center;justify-content:space-between;padding:.3rem .4rem;background:var(--surface)}
+.page-thumb .pt-num{font-size:.72rem;color:var(--text-muted)}
+.page-thumb .pt-rot{background:none;border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;font-size:.7rem;padding:.15rem .4rem}
+.page-thumb .pt-rot:hover{border-color:var(--primary);color:var(--primary)}
+.page-thumb .pt-del{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.85rem;padding:0 .2rem}
+.page-thumb .pt-del:hover{color:var(--error)}
+</style>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#128260; Rotate / <span>Reorder</span></h1>
+  <p>Rotate individual pages and drag to reorder. Remove pages you don't need.</p>
+</div>
+<div class="card">
+  <div class="drop-zone" id="o-drop"><input type="file" id="o-file" accept=".pdf"/><div class="icon">&#128260;</div><div class="label">Select a PDF file</div></div>
+  <div class="file-info" id="o-info"><div class="fi">&#128206;</div><div class="fd"><div class="fn" id="o-fn"></div><div class="fs" id="o-fs"></div></div><button class="rb" id="o-rm">&times;</button></div>
+  <div class="page-grid" id="o-grid"></div>
+  <button class="action-btn" id="o-btn">&#128260; Save PDF</button>
+  <div class="progress-container" id="o-prog"><div class="progress-bar-bg"><div class="progress-bar" id="o-bar"></div></div><div class="progress-text" id="o-ptxt"></div></div>
+  <div class="status" id="o-status"></div>
+  <a class="download-btn" id="o-dl" download>&#11015; Download PDF</a>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function(){
+var pdfjsLib=window['pdfjs-dist/build/pdf'];
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+var jsPDF=window.jspdf.jsPDF;
+function fmt(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function $(id){return document.getElementById(id);}
+function show(el){el.classList.add('visible')}
+function hide(el){el.classList.remove('visible')}
+
+var drop=$('o-drop'),fileIn=$('o-file'),info=$('o-info'),fn=$('o-fn'),fs=$('o-fs'),rm=$('o-rm'),
+    grid=$('o-grid'),btn=$('o-btn'),prog=$('o-prog'),bar=$('o-bar'),ptxt=$('o-ptxt'),
+    status=$('o-status'),dl=$('o-dl'),file=null,pdfDoc=null;
+var pages=[]; // [{pageNum, rotation, canvas}]
+
+function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+function setP(p,t){bar.style.width=p+'%';ptxt.textContent=t;}
+
+async function renderThumb(page,rotation){
+  var vp=page.getViewport({scale:1,rotation:rotation});
+  var scale=150/Math.max(vp.width,vp.height);
+  var viewport=page.getViewport({scale:scale,rotation:rotation});
+  var c=document.createElement('canvas');c.width=viewport.width;c.height=viewport.height;
+  var cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:cx,viewport:viewport}).promise;
+  return c;
+}
+
+function renderGrid(){
+  grid.innerHTML='';
+  pages.forEach(function(pg,i){
+    var el=document.createElement('div');el.className='page-thumb';el.draggable=true;
+    el.appendChild(pg.canvas);
+    var bar=document.createElement('div');bar.className='pt-bar';
+    bar.innerHTML='<span class="pt-num">Page '+(i+1)+'</span>';
+    var rotBtn=document.createElement('button');rotBtn.className='pt-rot';rotBtn.textContent='↻ 90°';
+    rotBtn.addEventListener('click',async function(){
+      pg.rotation=(pg.rotation+90)%360;
+      var page=await pdfDoc.getPage(pg.pageNum);
+      pg.canvas=await renderThumb(page,pg.rotation);renderGrid();
+    });
+    var delBtn=document.createElement('button');delBtn.className='pt-del';delBtn.textContent='×';
+    delBtn.addEventListener('click',function(){pages.splice(i,1);renderGrid();});
+    bar.appendChild(rotBtn);bar.appendChild(delBtn);el.appendChild(bar);
+    // Drag reorder
+    el.addEventListener('dragstart',function(e){e.dataTransfer.setData('text/plain',i);el.classList.add('dragging');});
+    el.addEventListener('dragend',function(){el.classList.remove('dragging');});
+    el.addEventListener('dragover',function(e){e.preventDefault();});
+    el.addEventListener('drop',function(e){e.preventDefault();
+      var from=parseInt(e.dataTransfer.getData('text/plain'));if(from===i)return;
+      var item=pages.splice(from,1)[0];pages.splice(i,0,item);renderGrid();
+    });
+    grid.appendChild(el);
+  });
+  if(pages.length>0)show(btn);else hide(btn);
+}
+
+async function onFile(f){
+  if(!f)return;file=f;fn.textContent=f.name;fs.textContent=fmt(f.size);
+  show(info);drop.style.display='none';status.className='status';hide(dl);
+  var ab=await f.arrayBuffer();pdfDoc=await pdfjsLib.getDocument({data:new Uint8Array(ab)}).promise;
+  pages=[];
+  for(var i=1;i<=pdfDoc.numPages;i++){
+    var page=await pdfDoc.getPage(i);var c=await renderThumb(page,0);
+    pages.push({pageNum:i,rotation:0,canvas:c});
+  }
+  renderGrid();
+}
+function reset(){file=null;pdfDoc=null;pages=[];fileIn.value='';hide(info);hide(btn);hide(prog);hide(dl);status.className='status';drop.style.display='';grid.innerHTML='';}
+
+fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+rm.addEventListener('click',reset);
+
+btn.addEventListener('click',async function(){
+  if(!pages.length||!pdfDoc)return;
+  btn.disabled=true;btn.textContent='\u23F3 Saving...';show(prog);hide(dl);status.className='status';setP(5,'Rendering...');
+  try{
+    var doc=null;
+    for(var i=0;i<pages.length;i++){
+      setP(5+Math.round(i/pages.length*85),'Page '+(i+1)+'/'+pages.length);
+      var pg=pages[i];var page=await pdfDoc.getPage(pg.pageNum);
+      var vp=page.getViewport({scale:1,rotation:pg.rotation});
+      var sc=Math.max(vp.width,vp.height)>1200?2:3;
+      var viewport=page.getViewport({scale:sc,rotation:pg.rotation});
+      var c=document.createElement('canvas');c.width=viewport.width;c.height=viewport.height;
+      var cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);
+      await page.render({canvasContext:cx,viewport:viewport}).promise;
+      var img=c.toDataURL('image/jpeg',0.92);var wPt=vp.width*.75,hPt=vp.height*.75;
+      if(!doc)doc=new jsPDF({orientation:wPt>hPt?'l':'p',unit:'pt',format:[wPt,hPt]});
+      else doc.addPage([wPt,hPt],wPt>hPt?'l':'p');
+      doc.addImage(img,'JPEG',0,0,wPt,hPt);
+    }
+    setP(95,'Finalizing...');
+    var blob=doc.output('blob');var url=URL.createObjectURL(blob);
+    dl.href=url;dl.download=file.name.replace(/\.pdf$/i,'')+'_edited.pdf';show(dl);
+    setP(100,'Done!');setStatus(pages.length+' page(s) · '+fmt(blob.size),'success');
+  }catch(err){console.error(err);setStatus('Error: '+(err.message||err),'error');hide(prog);
+  }finally{btn.disabled=false;btn.textContent='\uD83D\uDD04 Save PDF';}
+});
+})();
+</script>
+</body>
+</html>

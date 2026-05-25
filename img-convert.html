@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>Image Converter — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#128257; Image <span>Converter</span></h1>
+  <p>Convert between JPG, PNG, WebP, and BMP formats.</p>
+</div>
+<div class="card">
+  <div class="drop-zone" id="c-drop"><input type="file" id="c-file" accept="image/*"/><div class="icon">&#128257;</div><div class="label">Select an image</div></div>
+  <div class="file-info" id="c-info"><div class="fi">&#128206;</div><div class="fd"><div class="fn" id="c-fn"></div><div class="fs" id="c-fs"></div></div><button class="rb" id="c-rm">&times;</button></div>
+  <div class="preview-area" id="c-preview"><img id="c-img" alt="Preview"/></div>
+  <div class="field" id="c-opts">
+    <label>Convert to</label>
+    <div class="presets" id="c-fmt-presets">
+      <div class="preset active" data-mime="image/jpeg" data-ext="jpg">JPG</div>
+      <div class="preset" data-mime="image/png" data-ext="png">PNG</div>
+      <div class="preset" data-mime="image/webp" data-ext="webp">WebP</div>
+      <div class="preset" data-mime="image/bmp" data-ext="bmp">BMP</div>
+    </div>
+    <label style="margin-top:.5rem">Quality (JPG/WebP only)</label>
+    <div class="field-row"><input type="range" id="c-quality" min="10" max="100" value="92" style="accent-color:var(--primary)"/><span id="c-quality-val" style="font-size:.78rem;color:var(--primary);margin-left:.5rem">92%</span></div>
+  </div>
+  <button class="action-btn" id="c-btn">&#128257; Convert</button>
+  <div class="status" id="c-status"></div>
+  <a class="download-btn" id="c-dl" download>&#11015; Download Converted Image</a>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script>
+(function(){
+function fmt(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function $(id){return document.getElementById(id);}
+function show(el){el.classList.add('visible')}
+function hide(el){el.classList.remove('visible')}
+
+var drop=$('c-drop'),fileIn=$('c-file'),info=$('c-info'),fn=$('c-fn'),fs=$('c-fs'),rm=$('c-rm'),
+    preview=$('c-preview'),imgEl=$('c-img'),optsField=$('c-opts'),qualityIn=$('c-quality'),qualityVal=$('c-quality-val'),
+    btn=$('c-btn'),status=$('c-status'),dl=$('c-dl'),file=null,loadedImg=null;
+var outMime='image/jpeg',outExt='jpg';
+
+function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+
+document.querySelectorAll('#c-fmt-presets .preset').forEach(function(p){
+  p.addEventListener('click',function(){
+    document.querySelectorAll('#c-fmt-presets .preset').forEach(function(x){x.classList.remove('active');});
+    p.classList.add('active');outMime=p.dataset.mime;outExt=p.dataset.ext;
+  });
+});
+qualityIn.addEventListener('input',function(){qualityVal.textContent=this.value+'%';});
+
+function onFile(f){
+  if(!f||!f.type.startsWith('image/'))return;
+  file=f;fn.textContent=f.name;fs.textContent=fmt(f.size);
+  show(info);show(optsField);show(btn);drop.style.display='none';
+  status.className='status';hide(dl);
+  var img=new Image();img.onload=function(){loadedImg=img;imgEl.src=img.src;preview.classList.add('visible');};
+  img.src=URL.createObjectURL(f);
+}
+function reset(){file=null;loadedImg=null;fileIn.value='';hide(info);hide(optsField);hide(btn);hide(dl);status.className='status';drop.style.display='';preview.classList.remove('visible');}
+
+fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+rm.addEventListener('click',reset);
+
+btn.addEventListener('click',function(){
+  if(!loadedImg)return;
+  var c=document.createElement('canvas');c.width=loadedImg.width;c.height=loadedImg.height;
+  var cx=c.getContext('2d');
+  if(outMime==='image/jpeg'||outMime==='image/bmp'){cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);}
+  cx.drawImage(loadedImg,0,0);
+  var quality=(outMime==='image/jpeg'||outMime==='image/webp')?parseInt(qualityIn.value)/100:undefined;
+  c.toBlob(function(blob){
+    if(!blob){setStatus('Conversion failed. Format may not be supported by your browser.','error');return;}
+    var url=URL.createObjectURL(blob);
+    var name=file.name.replace(/\.[^.]+$/,'')+'.'+outExt;
+    dl.href=url;dl.download=name;show(dl);
+    setStatus(fmt(file.size)+' → '+fmt(blob.size)+' ('+loadedImg.width+'×'+loadedImg.height+')','success');
+  },outMime,quality);
+});
+})();
+</script>
+</body>
+</html>

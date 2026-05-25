@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>Merge PDFs — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#128203; Merge <span>PDFs</span></h1>
+  <p>Combine multiple PDF files into one. Drag to reorder.</p>
+</div>
+<div class="card">
+  <div class="drop-zone" id="m-drop"><input type="file" id="m-file" accept=".pdf" multiple/><div class="icon">&#128203;</div><div class="label">Select PDF files (multiple)</div></div>
+  <div class="file-list" id="m-list"></div>
+  <div style="margin-top:.5rem;display:none" id="m-add-wrap"><button class="preset" id="m-add-more" style="width:100%;text-align:center">+ Add more files</button><input type="file" id="m-file2" accept=".pdf" multiple style="display:none"/></div>
+  <button class="action-btn" id="m-btn">&#128203; Merge PDFs</button>
+  <div class="progress-container" id="m-prog"><div class="progress-bar-bg"><div class="progress-bar" id="m-bar"></div></div><div class="progress-text" id="m-ptxt"></div></div>
+  <div class="status" id="m-status"></div>
+  <div class="preview-area" id="m-preview"><canvas id="m-canvas"></canvas></div>
+  <a class="download-btn" id="m-dl" download>&#11015; Download Merged PDF</a>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function(){
+var pdfjsLib=window['pdfjs-dist/build/pdf'];
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+var jsPDF=window.jspdf.jsPDF;
+function fmt(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function $(id){return document.getElementById(id);}
+function show(el){el.classList.add('visible')}
+function hide(el){el.classList.remove('visible')}
+
+var drop=$('m-drop'),fileIn=$('m-file'),fileIn2=$('m-file2'),list=$('m-list'),
+    addWrap=$('m-add-wrap'),addMore=$('m-add-more'),
+    btn=$('m-btn'),prog=$('m-prog'),bar=$('m-bar'),ptxt=$('m-ptxt'),
+    status=$('m-status'),dl=$('m-dl'),preview=$('m-preview'),canvas=$('m-canvas');
+var files=[];
+
+function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+function setP(p,t){bar.style.width=p+'%';ptxt.textContent=t;}
+
+function renderList(){
+  list.innerHTML='';
+  files.forEach(function(f,i){
+    var el=document.createElement('div');el.className='file-list-item';
+    el.innerHTML='<span class="fli-grip">&#9776;</span><span class="fli-num">'+(i+1)+'</span><span class="fli-name">'+f.name+'</span><span class="fli-size">'+fmt(f.size)+'</span><button class="fli-rm">&times;</button>';
+    el.querySelector('.fli-rm').addEventListener('click',function(){files.splice(i,1);renderList();});
+    // Drag reorder
+    el.draggable=true;
+    el.addEventListener('dragstart',function(e){e.dataTransfer.setData('text/plain',i);el.style.opacity='.5';});
+    el.addEventListener('dragend',function(){el.style.opacity='1';});
+    el.addEventListener('dragover',function(e){e.preventDefault();el.style.borderTop='2px solid var(--primary)';});
+    el.addEventListener('dragleave',function(){el.style.borderTop='';});
+    el.addEventListener('drop',function(e){e.preventDefault();el.style.borderTop='';
+      var from=parseInt(e.dataTransfer.getData('text/plain'));var to=i;
+      if(from===to)return;var item=files.splice(from,1)[0];files.splice(to,0,item);renderList();
+    });
+    list.appendChild(el);
+  });
+  if(files.length>0){show(btn);addWrap.style.display='block';drop.style.display='none';}
+  else{hide(btn);addWrap.style.display='none';drop.style.display='';}
+}
+
+function addFiles(fl){
+  for(var i=0;i<fl.length;i++){
+    if(fl[i].type==='application/pdf'||fl[i].name.toLowerCase().endsWith('.pdf'))files.push(fl[i]);
+  }
+  status.className='status';hide(dl);preview.classList.remove('visible');
+  renderList();
+}
+
+fileIn.addEventListener('change',function(e){addFiles(e.target.files);fileIn.value='';});
+fileIn2.addEventListener('change',function(e){addFiles(e.target.files);fileIn2.value='';});
+addMore.addEventListener('click',function(){fileIn2.click();});
+drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');addFiles(e.dataTransfer.files);});
+
+btn.addEventListener('click',async function(){
+  if(files.length<2){setStatus('Add at least 2 PDF files.','error');return;}
+  btn.disabled=true;btn.textContent='\u23F3 Merging...';show(prog);hide(dl);preview.classList.remove('visible');
+  status.className='status';setP(5,'Starting...');
+  try{
+    var doc=null;var totalPages=0;
+    for(var fi=0;fi<files.length;fi++){
+      setP(5+Math.round(fi/files.length*80),'Processing '+files[fi].name+'...');
+      var ab=await files[fi].arrayBuffer();
+      var pdf=await pdfjsLib.getDocument({data:new Uint8Array(ab)}).promise;
+      for(var p=1;p<=pdf.numPages;p++){
+        var page=await pdf.getPage(p);var vp=page.getViewport({scale:1});
+        var sc=Math.max(vp.width,vp.height)>1200?2:3;
+        var viewport=page.getViewport({scale:sc});
+        var c=document.createElement('canvas');c.width=viewport.width;c.height=viewport.height;
+        var cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);
+        await page.render({canvasContext:cx,viewport:viewport}).promise;
+        var img=c.toDataURL('image/jpeg',0.92);
+        var wPt=vp.width*.75,hPt=vp.height*.75;
+        if(!doc)doc=new jsPDF({orientation:wPt>hPt?'l':'p',unit:'pt',format:[wPt,hPt]});
+        else doc.addPage([wPt,hPt],wPt>hPt?'l':'p');
+        doc.addImage(img,'JPEG',0,0,wPt,hPt);
+        totalPages++;
+      }
+    }
+    setP(90,'Finalizing...');
+    var blob=doc.output('blob');var url=URL.createObjectURL(blob);
+    dl.href=url;dl.download='merged_'+files.length+'files.pdf';show(dl);
+    // Preview page 1
+    var prevPdf=await pdfjsLib.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise;
+    var p1=await prevPdf.getPage(1);var pvp=p1.getViewport({scale:1});
+    var pw=preview.clientWidth||400;var psc=(pw/pvp.width)*2;var pvp2=p1.getViewport({scale:psc});
+    canvas.width=pvp2.width;canvas.height=pvp2.height;
+    canvas.style.width=pw+'px';canvas.style.height=Math.round(pw*(pvp.height/pvp.width))+'px';
+    var pctx=canvas.getContext('2d');pctx.fillStyle='#fff';pctx.fillRect(0,0,canvas.width,canvas.height);
+    await p1.render({canvasContext:pctx,viewport:pvp2}).promise;preview.classList.add('visible');
+    setP(100,'Done!');setStatus('Merged '+files.length+' files ('+totalPages+' pages) · '+fmt(blob.size),'success');
+  }catch(err){console.error(err);setStatus('Error: '+(err.message||err),'error');hide(prog);
+  }finally{btn.disabled=false;btn.textContent='\uD83D\uDCCB Merge PDFs';}
+});
+})();
+</script>
+</body>
+</html>

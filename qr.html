@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>QR Code — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+<style>
+.qr-output{text-align:center;margin-top:.8rem}
+.qr-output canvas{border-radius:8px;background:#fff;padding:12px;max-width:250px}
+.qr-tabs{display:flex;gap:0;margin-bottom:.8rem}
+.qr-tab{flex:1;padding:.5rem;text-align:center;background:var(--bg);border:1px solid var(--border);cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text-muted);transition:all .2s}
+.qr-tab:first-child{border-radius:8px 0 0 8px}
+.qr-tab:last-child{border-radius:0 8px 8px 0}
+.qr-tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.qr-input-section{display:none}.qr-input-section.active{display:block}
+</style>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#9641; QR <span>Code</span></h1>
+  <p>Generate QR codes for text, URLs, WiFi, and more.</p>
+</div>
+<div class="card">
+  <div class="qr-tabs">
+    <div class="qr-tab active" data-type="text">Text / URL</div>
+    <div class="qr-tab" data-type="wifi">WiFi</div>
+    <div class="qr-tab" data-type="email">Email</div>
+    <div class="qr-tab" data-type="phone">Phone</div>
+  </div>
+  <div class="qr-input-section active" id="qr-text">
+    <div class="field-row"><textarea id="qr-text-val" rows="3" placeholder="Enter text or URL..." style="width:100%;padding:.6rem .8rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;resize:vertical;font-family:inherit"></textarea></div>
+  </div>
+  <div class="qr-input-section" id="qr-wifi">
+    <div class="field-row" style="margin-bottom:.4rem"><input type="text" id="qr-wifi-ssid" placeholder="Network name (SSID)"/></div>
+    <div class="field-row" style="margin-bottom:.4rem"><input type="text" id="qr-wifi-pass" placeholder="Password"/></div>
+    <div class="presets" style="margin-bottom:.4rem">
+      <div class="preset active" data-v="WPA">WPA/WPA2</div>
+      <div class="preset" data-v="WEP">WEP</div>
+      <div class="preset" data-v="nopass">Open</div>
+    </div>
+  </div>
+  <div class="qr-input-section" id="qr-email">
+    <div class="field-row" style="margin-bottom:.4rem"><input type="email" id="qr-email-to" placeholder="Email address"/></div>
+    <div class="field-row" style="margin-bottom:.4rem"><input type="text" id="qr-email-sub" placeholder="Subject (optional)"/></div>
+  </div>
+  <div class="qr-input-section" id="qr-phone">
+    <div class="field-row"><input type="tel" id="qr-phone-num" placeholder="Phone number"/></div>
+  </div>
+  <div style="display:flex;gap:.5rem;margin-top:.8rem;align-items:center;flex-wrap:wrap">
+    <span style="font-size:.78rem;color:var(--text-muted)">Size</span>
+    <input type="number" id="qr-size" value="256" min="100" max="1000" step="50" style="width:70px;padding:.4rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.82rem"/>
+    <span style="font-size:.78rem;color:var(--text-muted)">FG</span>
+    <input type="color" id="qr-fg" value="#000000" style="width:36px;height:30px;padding:2px;cursor:pointer;border:1px solid var(--border);border-radius:6px"/>
+    <span style="font-size:.78rem;color:var(--text-muted)">BG</span>
+    <input type="color" id="qr-bg" value="#ffffff" style="width:36px;height:30px;padding:2px;cursor:pointer;border:1px solid var(--border);border-radius:6px"/>
+  </div>
+  <button class="action-btn visible" id="qr-btn" style="display:block">&#9641; Generate QR Code</button>
+  <div class="status" id="qr-status"></div>
+  <div class="qr-output" id="qr-output"><canvas id="qr-canvas"></canvas></div>
+  <a class="download-btn" id="qr-dl" download="qrcode.png">&#11015; Download QR Code</a>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function(){
+function $(id){return document.getElementById(id);}
+function show(el){el.classList.add('visible')}
+function hide(el){el.classList.remove('visible')}
+var activeType='text',wifiEnc='WPA';
+
+// Tab switching
+document.querySelectorAll('.qr-tab').forEach(function(tab){
+  tab.addEventListener('click',function(){
+    document.querySelectorAll('.qr-tab').forEach(function(t){t.classList.remove('active');});
+    document.querySelectorAll('.qr-input-section').forEach(function(s){s.classList.remove('active');});
+    tab.classList.add('active');activeType=tab.dataset.type;
+    $('qr-'+activeType).classList.add('active');
+  });
+});
+// WiFi encryption
+document.querySelectorAll('#qr-wifi .preset').forEach(function(p){
+  p.addEventListener('click',function(){
+    document.querySelectorAll('#qr-wifi .preset').forEach(function(x){x.classList.remove('active');});
+    p.classList.add('active');wifiEnc=p.dataset.v;
+  });
+});
+
+function getData(){
+  if(activeType==='text')return $('qr-text-val').value.trim();
+  if(activeType==='wifi'){
+    var ssid=$('qr-wifi-ssid').value.trim();var pass=$('qr-wifi-pass').value;
+    if(!ssid)return '';return 'WIFI:T:'+wifiEnc+';S:'+ssid+';P:'+pass+';;';
+  }
+  if(activeType==='email'){
+    var to=$('qr-email-to').value.trim();if(!to)return '';
+    var sub=$('qr-email-sub').value.trim();
+    return 'mailto:'+to+(sub?'?subject='+encodeURIComponent(sub):'');
+  }
+  if(activeType==='phone'){var num=$('qr-phone-num').value.trim();return num?'tel:'+num:'';}
+  return '';
+}
+
+$('qr-btn').addEventListener('click',function(){
+  var data=getData();
+  if(!data){$('qr-status').textContent='Enter some data first.';$('qr-status').className='status visible error';return;}
+  $('qr-status').className='status';
+  var size=parseInt($('qr-size').value)||256;
+  var fg=$('qr-fg').value;var bg=$('qr-bg').value;
+  // Clear previous
+  var output=$('qr-output');output.innerHTML='';
+  var container=document.createElement('div');output.appendChild(container);
+  try{
+    new QRCode(container,{text:data,width:size,height:size,colorDark:fg,colorLight:bg,correctLevel:QRCode.CorrectLevel.M});
+    output.style.display='block';
+    // Wait for canvas to render
+    setTimeout(function(){
+      var canvas=container.querySelector('canvas');
+      if(canvas){$('qr-dl').href=canvas.toDataURL('image/png');show($('qr-dl'));}
+    },100);
+  }catch(e){$('qr-status').textContent='Error generating QR code: '+e.message;$('qr-status').className='status visible error';}
+});
+})();
+</script>
+</body>
+</html>

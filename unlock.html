@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>Unlock PDF — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#128275; Unlock <span>PDF</span></h1>
+  <p>Remove passwords from encrypted PDFs. Decryption runs entirely in your browser.</p>
+</div>
+<div class="card">
+  <div class="drop-zone" id="u-drop"><input type="file" id="u-file" accept=".pdf"/><div class="icon">&#128274;</div><div class="label">Select encrypted PDF</div></div>
+  <div class="file-info" id="u-info"><div class="fi">&#128206;</div><div class="fd"><div class="fn" id="u-fn"></div><div class="fs" id="u-fs"></div></div><button class="rb" id="u-rm">&times;</button></div>
+  <div class="field" id="u-pw-field"><label for="u-pw">PDF Password</label><div class="field-row"><input type="password" id="u-pw" placeholder="Enter password" autocomplete="off"/><button class="toggle-pw" id="u-toggle">&#128065;</button></div></div>
+  <button class="action-btn" id="u-btn">&#128275; Unlock PDF</button>
+  <div class="progress-container" id="u-prog"><div class="progress-bar-bg"><div class="progress-bar" id="u-bar"></div></div><div class="progress-text" id="u-ptxt"></div></div>
+  <div class="status" id="u-status"></div>
+  <div class="preview-area" id="u-preview"><canvas id="u-canvas"></canvas></div>
+  <a class="download-btn" id="u-dl" download>&#11015; Download Unlocked PDF</a>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function(){
+var pdfjsLib=window['pdfjs-dist/build/pdf'];
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+var jsPDF=window.jspdf.jsPDF;
+function fmt(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function $(id){return document.getElementById(id);}
+var drop=$('u-drop'),fileIn=$('u-file'),info=$('u-info'),fn=$('u-fn'),fs=$('u-fs'),
+    rm=$('u-rm'),pwField=$('u-pw-field'),pw=$('u-pw'),toggle=$('u-toggle'),
+    btn=$('u-btn'),prog=$('u-prog'),bar=$('u-bar'),ptxt=$('u-ptxt'),
+    status=$('u-status'),dl=$('u-dl'),preview=$('u-preview'),canvas=$('u-canvas'),file=null;
+function show(el){el.classList.add('visible')}
+function hide(el){el.classList.remove('visible')}
+function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+function setP(p,t){bar.style.width=p+'%';ptxt.textContent=t;}
+function onFile(f){
+  if(!f||(!f.name.toLowerCase().endsWith('.pdf')&&f.type!=='application/pdf'))return;
+  file=f;fn.textContent=f.name;fs.textContent=fmt(f.size);
+  show(info);show(pwField);show(btn);drop.style.display='none';
+  status.className='status';hide(dl);hide(prog);preview.classList.remove('visible');pw.value='';pw.focus();
+}
+function reset(){file=null;fileIn.value='';hide(info);hide(pwField);hide(btn);hide(prog);hide(dl);status.className='status';drop.style.display='';preview.classList.remove('visible');pw.value='';}
+fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+rm.addEventListener('click',reset);
+toggle.addEventListener('click',function(){var is=pw.type==='password';pw.type=is?'text':'password';toggle.innerHTML=is?'&#128584;':'&#128065;';});
+pw.addEventListener('keydown',function(e){if(e.key==='Enter')btn.click();});
+btn.addEventListener('click',async function(){
+  if(!file)return;var password=pw.value;
+  if(!password){setStatus('Please enter the password.','error');pw.focus();return;}
+  btn.disabled=true;btn.textContent='\u23F3 Processing...';show(prog);hide(dl);preview.classList.remove('visible');
+  status.className='status';setP(5,'Loading...');
+  try{
+    var ab=await file.arrayBuffer();setP(10,'Decrypting...');
+    var pdf=await pdfjsLib.getDocument({data:new Uint8Array(ab),password:password}).promise;
+    var total=pdf.numPages;setP(20,'Rendering '+total+' page(s)...');
+    var c=document.createElement('canvas'),cx=c.getContext('2d'),doc=null;
+    for(var i=1;i<=total;i++){
+      var page=await pdf.getPage(i);var vp=page.getViewport({scale:1});
+      var sc=Math.max(vp.width,vp.height)>1200?2:3;var viewport=page.getViewport({scale:sc});
+      c.width=viewport.width;c.height=viewport.height;cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);
+      await page.render({canvasContext:cx,viewport:viewport}).promise;
+      var img=c.toDataURL('image/jpeg',0.92);var wPt=vp.width*.75,hPt=vp.height*.75;
+      if(i===1)doc=new jsPDF({orientation:wPt>hPt?'l':'p',unit:'pt',format:[wPt,hPt]});
+      else doc.addPage([wPt,hPt],wPt>hPt?'l':'p');
+      doc.addImage(img,'JPEG',0,0,wPt,hPt);
+      try{var tc=await page.getTextContent();doc.setTextColor(0,0,0);doc.internal.write('3 Tr');
+        for(var t=0;t<tc.items.length;t++){var it=tc.items[t];if(!it.str||!it.str.trim())continue;
+          var tx=it.transform;var fz=Math.sqrt(tx[2]*tx[2]+tx[3]*tx[3])*.75;
+          if(fz<1)fz=Math.sqrt(tx[0]*tx[0]+tx[1]*tx[1])*.75;if(fz<1)continue;
+          doc.setFontSize(fz);doc.text(it.str,tx[4]*.75,hPt-tx[5]*.75,{renderingMode:'invisible'});}
+        doc.internal.write('0 Tr');
+      }catch(e){}
+      setP(20+Math.round(i/total*70),'Page '+i+'/'+total);
+    }
+    setP(95,'Finalizing...');
+    var blob=doc.output('blob');var url=URL.createObjectURL(blob);
+    dl.href=url;dl.download=file.name.replace(/\.pdf$/i,'')+'_unlocked.pdf';show(dl);
+    // Quick preview of page 1
+    var prevPdf=await pdfjsLib.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise;
+    var p1=await prevPdf.getPage(1);var pvp=p1.getViewport({scale:1});
+    var pw2=preview.clientWidth||400;var psc=(pw2/pvp.width)*2;
+    var pvp2=p1.getViewport({scale:psc});canvas.width=pvp2.width;canvas.height=pvp2.height;
+    canvas.style.width=pw2+'px';canvas.style.height=Math.round(pw2*(pvp.height/pvp.width))+'px';
+    var pctx=canvas.getContext('2d');pctx.fillStyle='#fff';pctx.fillRect(0,0,canvas.width,canvas.height);
+    await p1.render({canvasContext:pctx,viewport:pvp2}).promise;preview.classList.add('visible');
+    setP(100,'Done!');setStatus('Unlocked '+total+' page(s)! ('+fmt(blob.size)+')','success');
+  }catch(err){console.error(err);
+    if(err.name==='PasswordException'||(err.message&&err.message.toLowerCase().indexOf('password')!==-1))setStatus('Incorrect password.','error');
+    else setStatus('Error: '+(err.message||err),'error');hide(prog);
+  }finally{btn.disabled=false;btn.textContent='\uD83D\uDD13 Unlock PDF';}
+});
+})();
+</script>
+</body>
+</html>

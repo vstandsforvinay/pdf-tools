@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>PDF to Images — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#127748; PDF to <span>Images</span></h1>
+  <p>Export each PDF page as a high-quality JPG or PNG image.</p>
+</div>
+<div class="card">
+  <div class="drop-zone" id="d-drop"><input type="file" id="d-file" accept=".pdf"/><div class="icon">&#127748;</div><div class="label">Select a PDF file</div></div>
+  <div class="file-info" id="d-info"><div class="fi">&#128206;</div><div class="fd"><div class="fn" id="d-fn"></div><div class="fs" id="d-fs"></div></div><button class="rb" id="d-rm">&times;</button></div>
+  <div class="field" id="d-opts">
+    <label>Output format</label>
+    <div class="presets" id="d-fmt-presets">
+      <div class="preset active" data-v="jpeg">JPG</div>
+      <div class="preset" data-v="png">PNG</div>
+    </div>
+    <label style="margin-top:.5rem">Scale</label>
+    <div class="presets" id="d-scale-presets">
+      <div class="preset" data-v="1">1x</div>
+      <div class="preset active" data-v="2">2x (HD)</div>
+      <div class="preset" data-v="3">3x (Ultra)</div>
+    </div>
+  </div>
+  <button class="action-btn" id="d-btn">&#127748; Export Images</button>
+  <div class="progress-container" id="d-prog"><div class="progress-bar-bg"><div class="progress-bar" id="d-bar"></div></div><div class="progress-text" id="d-ptxt"></div></div>
+  <div class="status" id="d-status"></div>
+  <div id="d-results" style="margin-top:.8rem"></div>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function(){
+var pdfjsLib=window['pdfjs-dist/build/pdf'];
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+function fmt(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function $(id){return document.getElementById(id);}
+function show(el){el.classList.add('visible')}
+function hide(el){el.classList.remove('visible')}
+
+var drop=$('d-drop'),fileIn=$('d-file'),info=$('d-info'),fn=$('d-fn'),fs=$('d-fs'),rm=$('d-rm'),
+    optsField=$('d-opts'),btn=$('d-btn'),prog=$('d-prog'),bar=$('d-bar'),ptxt=$('d-ptxt'),
+    status=$('d-status'),results=$('d-results'),file=null;
+var outFmt='jpeg',outScale=2;
+
+function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+function setP(p,t){bar.style.width=p+'%';ptxt.textContent=t;}
+
+document.querySelectorAll('#d-fmt-presets .preset').forEach(function(p){
+  p.addEventListener('click',function(){document.querySelectorAll('#d-fmt-presets .preset').forEach(function(x){x.classList.remove('active');});p.classList.add('active');outFmt=p.dataset.v;});
+});
+document.querySelectorAll('#d-scale-presets .preset').forEach(function(p){
+  p.addEventListener('click',function(){document.querySelectorAll('#d-scale-presets .preset').forEach(function(x){x.classList.remove('active');});p.classList.add('active');outScale=parseInt(p.dataset.v);});
+});
+
+function onFile(f){
+  if(!f)return;file=f;fn.textContent=f.name;fs.textContent=fmt(f.size);
+  show(info);show(optsField);show(btn);drop.style.display='none';
+  status.className='status';results.innerHTML='';
+}
+function reset(){file=null;fileIn.value='';hide(info);hide(optsField);hide(btn);hide(prog);status.className='status';drop.style.display='';results.innerHTML='';}
+
+fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+rm.addEventListener('click',reset);
+
+btn.addEventListener('click',async function(){
+  if(!file)return;
+  btn.disabled=true;btn.textContent='\u23F3 Exporting...';show(prog);results.innerHTML='';
+  status.className='status';setP(5,'Loading...');
+  try{
+    var ab=await file.arrayBuffer();
+    var pdf=await pdfjsLib.getDocument({data:new Uint8Array(ab)}).promise;
+    var total=pdf.numPages;var ext=outFmt==='png'?'png':'jpg';
+    var mime='image/'+(outFmt==='png'?'png':'jpeg');var quality=outFmt==='png'?undefined:0.92;
+    for(var i=1;i<=total;i++){
+      setP(5+Math.round(i/total*85),'Page '+i+'/'+total);
+      var page=await pdf.getPage(i);var vp=page.getViewport({scale:outScale});
+      var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
+      var cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);
+      await page.render({canvasContext:cx,viewport:vp}).promise;
+      var blob=await new Promise(function(res){c.toBlob(res,mime,quality);});
+      var url=URL.createObjectURL(blob);
+      var name=file.name.replace(/\.pdf$/i,'')+'_page'+i+'.'+ext;
+      // Add download link + thumbnail
+      var row=document.createElement('div');row.className='file-list-item';
+      row.innerHTML='<span class="fli-num">'+i+'</span><span class="fli-name">'+name+'</span><span class="fli-size">'+fmt(blob.size)+'</span>';
+      var a=document.createElement('a');a.href=url;a.download=name;a.className='preset';a.style.cssText='background:var(--success);color:#fff;border-color:var(--success);text-decoration:none;font-size:.72rem';a.textContent='Save';
+      row.appendChild(a);results.appendChild(row);
+    }
+    setP(100,'Done!');setStatus('Exported '+total+' page(s) as '+ext.toUpperCase(),'success');
+  }catch(err){console.error(err);setStatus('Error: '+(err.message||err),'error');hide(prog);
+  }finally{btn.disabled=false;btn.textContent='\uD83C\uDF04 Export Images';}
+});
+})();
+</script>
+</body>
+</html>

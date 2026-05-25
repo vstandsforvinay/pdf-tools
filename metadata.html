@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>Image Metadata — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+<style>
+.meta-table{width:100%;border-collapse:collapse;margin-top:.6rem;font-size:.8rem}
+.meta-table th,.meta-table td{padding:.4rem .6rem;text-align:left;border-bottom:1px solid var(--border)}
+.meta-table th{color:var(--text-muted);font-weight:600;width:35%}
+.meta-table td{word-break:break-all}
+.meta-section{margin-top:.8rem;padding:.6rem;background:var(--bg);border-radius:8px}
+.meta-section h3{font-size:.85rem;margin-bottom:.4rem;color:var(--primary)}
+.meta-warning{display:flex;align-items:center;gap:.4rem;padding:.5rem .7rem;background:rgba(231,76,60,.1);border-radius:8px;margin-top:.6rem;font-size:.8rem;color:var(--error)}
+</style>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#128269; Image <span>Metadata</span></h1>
+  <p>View EXIF data (GPS, camera info) and strip it for privacy.</p>
+</div>
+<div class="card">
+  <div class="drop-zone" id="md-drop"><input type="file" id="md-file" accept="image/*"/><div class="icon">&#128269;</div><div class="label">Select an image (JPG recommended)</div></div>
+  <div class="file-info" id="md-info"><div class="fi">&#128206;</div><div class="fd"><div class="fn" id="md-fn"></div><div class="fs" id="md-fs"></div></div><button class="rb" id="md-rm">&times;</button></div>
+  <div id="md-gps-warning" class="meta-warning" style="display:none">&#9888; This image contains GPS location data!</div>
+  <div id="md-results"></div>
+  <button class="action-btn" id="md-strip-btn">&#128683; Strip All Metadata &amp; Download</button>
+  <div class="status" id="md-status"></div>
+  <a class="download-btn" id="md-dl" download>&#11015; Download Clean Image</a>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script>
+(function(){
+function fmt(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function $(id){return document.getElementById(id);}
+function show(el){el.classList.add('visible')}
+function hide(el){el.classList.remove('visible')}
+
+var drop=$('md-drop'),fileIn=$('md-file'),info=$('md-info'),fn=$('md-fn'),fs=$('md-fs'),rm=$('md-rm'),
+    gpsWarn=$('md-gps-warning'),results=$('md-results'),
+    stripBtn=$('md-strip-btn'),status=$('md-status'),dl=$('md-dl'),file=null,loadedImg=null;
+
+function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+
+// Minimal EXIF parser for JPEG
+function readExif(ab){
+  var view=new DataView(ab);var exif={};
+  if(view.getUint16(0)!==0xFFD8)return exif; // Not JPEG
+  var offset=2;
+  while(offset<view.byteLength){
+    if(view.getUint8(offset)!==0xFF)break;
+    var marker=view.getUint8(offset+1);
+    if(marker===0xE1){ // APP1 (EXIF)
+      var len=view.getUint16(offset+2);
+      var exifData=new DataView(ab,offset+4,len-2);
+      // Check for "Exif\0\0"
+      if(exifData.getUint32(0)===0x45786966&&exifData.getUint16(4)===0x0000){
+        parseExifData(exifData,6,exif);
+      }
+      break;
+    }
+    var segLen=view.getUint16(offset+2);
+    offset+=2+segLen;
+  }
+  return exif;
+}
+
+function parseExifData(view,start,exif){
+  try{
+    var le=view.getUint16(start)===0x4949; // Little endian?
+    var g16=function(o){return le?view.getUint16(o,true):view.getUint16(o);};
+    var g32=function(o){return le?view.getUint32(o,true):view.getUint32(o);};
+    var ifdOffset=g32(start+4)+start;
+    var entries=g16(ifdOffset);
+    var tags={0x010F:'Make',0x0110:'Model',0x0112:'Orientation',0x011A:'XResolution',
+      0x011B:'YResolution',0x0131:'Software',0x0132:'DateTime',0x8769:'ExifIFD',0x8825:'GPSIFD',
+      0x829A:'ExposureTime',0x829D:'FNumber',0x9003:'DateTimeOriginal',0x920A:'FocalLength',
+      0xA405:'FocalLengthIn35mm',0xA002:'PixelXDimension',0xA003:'PixelYDimension'};
+    for(var i=0;i<entries;i++){
+      var entryOff=ifdOffset+2+i*12;
+      var tag=g16(entryOff);var type=g16(entryOff+2);var count=g32(entryOff+4);
+      var name=tags[tag];if(!name)continue;
+      if(name==='GPSIFD'){exif['GPS']='Present';continue;}
+      if(name==='ExifIFD'){
+        // Parse sub-IFD
+        var subOff=g32(entryOff+8)+start;
+        var subEntries=g16(subOff);
+        for(var j=0;j<subEntries;j++){
+          var se=subOff+2+j*12;var st=g16(se);var sn=tags[st];
+          if(!sn)continue;
+          exif[sn]=readTagValue(view,se,start,g16,g32,le);
+        }
+        continue;
+      }
+      exif[name]=readTagValue(view,entryOff,start,g16,g32,le);
+    }
+  }catch(e){exif['_parseError']=e.message;}
+}
+
+function readTagValue(view,entryOff,tiffStart,g16,g32,le){
+  var type=g16(entryOff+2);var count=g32(entryOff+4);
+  try{
+    if(type===2){ // ASCII
+      var strOff=count<=4?entryOff+8:g32(entryOff+8)+tiffStart;
+      var s='';for(var k=0;k<count-1;k++)s+=String.fromCharCode(view.getUint8(strOff+k));
+      return s;
+    }
+    if(type===3)return g16(entryOff+8); // SHORT
+    if(type===4)return g32(entryOff+8); // LONG
+    if(type===5){ // RATIONAL
+      var rOff=g32(entryOff+8)+tiffStart;
+      return g32(rOff)+'/'+g32(rOff+4);
+    }
+  }catch(e){}
+  return '(binary data)';
+}
+
+async function onFile(f){
+  if(!f)return;file=f;fn.textContent=f.name;fs.textContent=fmt(f.size);
+  show(info);drop.style.display='none';status.className='status';hide(dl);
+  gpsWarn.style.display='none';results.innerHTML='';
+
+  var ab=await f.arrayBuffer();
+  var exif=readExif(ab);
+  var keys=Object.keys(exif).filter(function(k){return k[0]!=='_';});
+
+  if(keys.length===0){
+    results.innerHTML='<div class="meta-section"><h3>No EXIF metadata found</h3><p style="font-size:.8rem;color:var(--text-muted)">This image has no embedded metadata, or it\'s not a JPEG.</p></div>';
+    hide(stripBtn);
+  }else{
+    if(exif['GPS']){gpsWarn.style.display='flex';}
+    var html='<div class="meta-section"><h3>EXIF Metadata</h3><table class="meta-table">';
+    keys.forEach(function(k){html+='<tr><th>'+k+'</th><td>'+exif[k]+'</td></tr>';});
+    html+='</table></div>';
+    results.innerHTML=html;
+    show(stripBtn);
+  }
+
+  // Load image for stripping
+  var img=new Image();img.onload=function(){loadedImg=img;};
+  img.src=URL.createObjectURL(f);
+}
+
+function reset(){file=null;loadedImg=null;fileIn.value='';hide(info);hide(stripBtn);hide(dl);
+  status.className='status';drop.style.display='';results.innerHTML='';gpsWarn.style.display='none';}
+
+fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+rm.addEventListener('click',reset);
+
+stripBtn.addEventListener('click',function(){
+  if(!loadedImg)return;
+  // Re-render through canvas strips all EXIF
+  var c=document.createElement('canvas');c.width=loadedImg.width;c.height=loadedImg.height;
+  var cx=c.getContext('2d');cx.drawImage(loadedImg,0,0);
+  var isJpg=file.name.toLowerCase().match(/\.jpe?g$/);
+  var mime=isJpg?'image/jpeg':'image/png';
+  var quality=isJpg?0.95:undefined;
+  c.toBlob(function(blob){
+    var url=URL.createObjectURL(blob);
+    var ext=isJpg?'.jpg':'.png';
+    dl.href=url;dl.download=file.name.replace(/\.[^.]+$/,'')+'_clean'+ext;show(dl);
+    setStatus('Metadata stripped! '+fmt(file.size)+' → '+fmt(blob.size),'success');
+  },mime,quality);
+});
+})();
+</script>
+</body>
+</html>

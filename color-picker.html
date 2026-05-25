@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>Color Picker — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+<style>
+.color-result{display:none;margin-top:.8rem;padding:.8rem;background:var(--bg);border-radius:8px;text-align:center}
+.color-result.visible{display:block}
+.color-swatch{width:60px;height:60px;border-radius:8px;border:2px solid var(--border);margin:0 auto .5rem;display:block}
+.color-values{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-top:.4rem}
+.color-val{padding:.3rem .6rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:.8rem;font-family:monospace;cursor:pointer;transition:border-color .2s}
+.color-val:hover{border-color:var(--primary)}
+.color-val .cv-label{font-size:.65rem;color:var(--text-muted);display:block}
+.pick-hint{font-size:.78rem;color:var(--text-muted);text-align:center;margin-top:.5rem}
+.crosshair{cursor:crosshair!important}
+</style>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#127912; Color <span>Picker</span></h1>
+  <p>Click anywhere on an image to pick colors. Get HEX, RGB, and HSL values.</p>
+</div>
+<div class="card">
+  <div class="drop-zone" id="cp-drop"><input type="file" id="cp-file" accept="image/*"/><div class="icon">&#127912;</div><div class="label">Select an image</div></div>
+  <div class="preview-area" id="cp-preview"><canvas id="cp-canvas" class="crosshair"></canvas></div>
+  <div class="pick-hint" id="cp-hint" style="display:none">Click/tap on the image to pick a color</div>
+  <div class="color-result" id="cp-result">
+    <div class="color-swatch" id="cp-swatch"></div>
+    <div class="color-values" id="cp-values"></div>
+  </div>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script>
+(function(){
+function $(id){return document.getElementById(id);}
+var drop=$('cp-drop'),fileIn=$('cp-file'),preview=$('cp-preview'),canvas=$('cp-canvas'),
+    ctx=canvas.getContext('2d'),hint=$('cp-hint'),result=$('cp-result'),
+    swatch=$('cp-swatch'),values=$('cp-values');
+var imgLoaded=false;
+
+function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;var max=Math.max(r,g,b),min=Math.min(r,g,b);
+  var h,s,l=(max+min)/2;if(max===min){h=s=0;}else{var d=max-min;s=l>.5?d/(2-max-min):d/(max+min);
+    switch(max){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;break;}}
+  return{h:Math.round(h*360),s:Math.round(s*100),l:Math.round(l*100)};
+}
+
+function onFile(f){
+  if(!f||!f.type.startsWith('image/'))return;
+  var img=new Image();img.onload=function(){
+    var maxW=preview.clientWidth||400;var scale=Math.min(maxW/img.width,1);
+    canvas.width=img.width;canvas.height=img.height;
+    canvas.style.width=Math.round(img.width*scale)+'px';
+    canvas.style.height=Math.round(img.height*scale)+'px';
+    ctx.drawImage(img,0,0);preview.classList.add('visible');
+    hint.style.display='block';drop.style.display='none';imgLoaded=true;
+  };img.src=URL.createObjectURL(f);
+}
+
+fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+
+function pickColor(e){
+  if(!imgLoaded)return;
+  var rect=canvas.getBoundingClientRect();
+  var x,y;if(e.touches){x=e.touches[0].clientX-rect.left;y=e.touches[0].clientY-rect.top;}
+  else{x=e.clientX-rect.left;y=e.clientY-rect.top;}
+  var scaleX=canvas.width/rect.width,scaleY=canvas.height/rect.height;
+  var px=Math.round(x*scaleX),py=Math.round(y*scaleY);
+  if(px<0||py<0||px>=canvas.width||py>=canvas.height)return;
+  var data=ctx.getImageData(px,py,1,1).data;
+  var r=data[0],g=data[1],b=data[2];
+  var hex='#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1).toUpperCase();
+  var hsl=rgbToHsl(r,g,b);
+  swatch.style.background=hex;
+  values.innerHTML='';
+  var vals=[
+    {label:'HEX',val:hex},{label:'RGB',val:'rgb('+r+', '+g+', '+b+')'},
+    {label:'HSL',val:'hsl('+hsl.h+', '+hsl.s+'%, '+hsl.l+'%)'}
+  ];
+  vals.forEach(function(v){
+    var el=document.createElement('div');el.className='color-val';
+    el.innerHTML='<span class="cv-label">'+v.label+'</span>'+v.val;
+    el.title='Click to copy';
+    el.addEventListener('click',function(){navigator.clipboard.writeText(v.val).then(function(){el.style.borderColor='var(--success)';setTimeout(function(){el.style.borderColor='';},800);});});
+    values.appendChild(el);
+  });
+  result.classList.add('visible');
+}
+canvas.addEventListener('click',pickColor);
+canvas.addEventListener('touchstart',function(e){e.preventDefault();pickColor(e);},{passive:false});
+})();
+</script>
+</body>
+</html>

@@ -1,14 +1,32 @@
-const CACHE_NAME = 'pdf-tools-v3';
+const CACHE_NAME = 'pdf-tools-v4';
 
 const PRECACHE_URLS = [
   './',
   './index.html',
+  './shared.css',
   './manifest.json',
   './icons/icon-192.svg',
   './icons/icon-512.svg',
+  './unlock.html',
+  './merge.html',
+  './split.html',
+  './resize.html',
+  './watermark.html',
+  './rotate.html',
+  './pdf-to-img.html',
+  './img-to-pdf.html',
+  './passport.html',
+  './img-convert.html',
+  './metadata.html',
+  './qr.html',
+  './ocr.html',
+  './color-picker.html',
+  './hash.html',
+  './bg-remove.html',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
 ];
 
 self.addEventListener('install', (event) => {

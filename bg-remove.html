@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>Background Remover — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#9984; Background <span>Remover</span></h1>
+  <p>Remove image backgrounds using AI. Runs entirely in your browser — no uploads.</p>
+</div>
+<div class="card">
+  <div class="drop-zone" id="bg-drop"><input type="file" id="bg-file" accept="image/*"/><div class="icon">&#9984;</div><div class="label">Select an image</div></div>
+  <div class="file-info" id="bg-info"><div class="fi">&#128206;</div><div class="fd"><div class="fn" id="bg-fn"></div><div class="fs" id="bg-fs"></div></div><button class="rb" id="bg-rm">&times;</button></div>
+  <button class="action-btn" id="bg-btn">&#9984; Remove Background</button>
+  <div class="progress-container" id="bg-prog"><div class="progress-bar-bg"><div class="progress-bar" id="bg-bar"></div></div><div class="progress-text" id="bg-ptxt"></div></div>
+  <div class="status" id="bg-status"></div>
+  <div style="display:flex;gap:.5rem;margin-top:.8rem;flex-wrap:wrap" id="bg-previews">
+    <div class="preview-area" id="bg-orig" style="flex:1;min-width:150px"><canvas id="bg-orig-canvas"></canvas></div>
+    <div class="preview-area" id="bg-result" style="flex:1;min-width:150px"><canvas id="bg-result-canvas"></canvas></div>
+  </div>
+  <a class="download-btn" id="bg-dl" download>&#11015; Download (PNG with transparency)</a>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/dist/index.js"></script>
+<script>
+(function(){
+function fmt(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function $(id){return document.getElementById(id);}
+function show(el){el.classList.add('visible')}
+function hide(el){el.classList.remove('visible')}
+
+var drop=$('bg-drop'),fileIn=$('bg-file'),info=$('bg-info'),fn=$('bg-fn'),fs=$('bg-fs'),rm=$('bg-rm'),
+    btn=$('bg-btn'),prog=$('bg-prog'),bar=$('bg-bar'),ptxt=$('bg-ptxt'),
+    status=$('bg-status'),dl=$('bg-dl'),
+    origPrev=$('bg-orig'),origCanvas=$('bg-orig-canvas'),
+    resultPrev=$('bg-result'),resultCanvas=$('bg-result-canvas'),
+    file=null;
+
+function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+function setP(p,t){bar.style.width=p+'%';ptxt.textContent=t;}
+
+function onFile(f){
+  if(!f||!f.type.startsWith('image/'))return;
+  file=f;fn.textContent=f.name;fs.textContent=fmt(f.size);
+  show(info);show(btn);drop.style.display='none';status.className='status';hide(dl);
+  origPrev.classList.remove('visible');resultPrev.classList.remove('visible');
+}
+function reset(){file=null;fileIn.value='';hide(info);hide(btn);hide(prog);hide(dl);
+  status.className='status';drop.style.display='';origPrev.classList.remove('visible');resultPrev.classList.remove('visible');}
+
+fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+rm.addEventListener('click',reset);
+
+btn.addEventListener('click',async function(){
+  if(!file)return;
+  if(typeof imglyRemoveBackground==='undefined'&&typeof window.removeBackground==='undefined'){
+    setStatus('AI model is loading... This may take a moment on first use (downloads ~40MB model).','error');
+  }
+  btn.disabled=true;btn.textContent='\u23F3 Processing...';show(prog);hide(dl);
+  status.className='status';setP(10,'Loading AI model (first time may take a minute)...');
+  try{
+    // Show original
+    var origImg=new Image();
+    await new Promise(function(res,rej){origImg.onload=res;origImg.onerror=rej;origImg.src=URL.createObjectURL(file);});
+    var ow=origImg.width,oh=origImg.height;var maxW=origPrev.clientWidth||300;var sc=Math.min(maxW/ow,1);
+    origCanvas.width=ow;origCanvas.height=oh;origCanvas.style.width=Math.round(ow*sc)+'px';origCanvas.style.height=Math.round(oh*sc)+'px';
+    origCanvas.getContext('2d').drawImage(origImg,0,0);origPrev.classList.add('visible');
+
+    setP(30,'Removing background...');
+    var removeBg=window.imglyRemoveBackground||window.removeBackground;
+    var blob=await removeBg(file,{progress:function(key,current,total){
+      if(key==='compute:inference')setP(30+Math.round((current/total)*60),'Processing...');
+    }});
+
+    setP(95,'Rendering result...');
+    var resultImg=new Image();
+    await new Promise(function(res,rej){resultImg.onload=res;resultImg.onerror=rej;resultImg.src=URL.createObjectURL(blob);});
+    resultCanvas.width=resultImg.width;resultCanvas.height=resultImg.height;
+    resultCanvas.style.width=Math.round(resultImg.width*sc)+'px';resultCanvas.style.height=Math.round(resultImg.height*sc)+'px';
+    // Checkerboard background for transparency
+    var rctx=resultCanvas.getContext('2d');
+    var tileSize=10;
+    for(var y=0;y<resultCanvas.height;y+=tileSize){for(var x=0;x<resultCanvas.width;x+=tileSize){
+      rctx.fillStyle=((x/tileSize+y/tileSize)%2===0)?'#ccc':'#fff';rctx.fillRect(x,y,tileSize,tileSize);
+    }}
+    rctx.drawImage(resultImg,0,0);resultPrev.classList.add('visible');
+
+    dl.href=URL.createObjectURL(blob);dl.download=file.name.replace(/\.[^.]+$/,'')+'_nobg.png';show(dl);
+    setP(100,'Done!');setStatus('Background removed! '+fmt(blob.size),'success');
+  }catch(err){
+    console.error(err);
+    setStatus('Error: '+(err.message||err)+'. Make sure you have a stable internet connection for the first model download.','error');
+    hide(prog);
+  }finally{btn.disabled=false;btn.textContent='\u2704 Remove Background';}
+});
+})();
+</script>
+</body>
+</html>

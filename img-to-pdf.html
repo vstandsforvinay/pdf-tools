@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>Images to PDF — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#128196; Images to <span>PDF</span></h1>
+  <p>Convert one or more images into a single PDF. Drag to reorder.</p>
+</div>
+<div class="card">
+  <div class="drop-zone" id="i-drop"><input type="file" id="i-file" accept="image/*" multiple/><div class="icon">&#127748;</div><div class="label">Select images</div></div>
+  <div class="file-list" id="i-list"></div>
+  <div style="margin-top:.5rem;display:none" id="i-add-wrap"><button class="preset" id="i-add-more" style="width:100%;text-align:center">+ Add more images</button><input type="file" id="i-file2" accept="image/*" multiple style="display:none"/></div>
+  <div class="field" id="i-opts" style="display:none">
+    <label>Page size</label>
+    <div class="presets" id="i-size-presets">
+      <div class="preset active" data-v="fit">Fit to image</div>
+      <div class="preset" data-v="a4">A4</div>
+      <div class="preset" data-v="letter">Letter</div>
+    </div>
+  </div>
+  <button class="action-btn" id="i-btn">&#128196; Create PDF</button>
+  <div class="progress-container" id="i-prog"><div class="progress-bar-bg"><div class="progress-bar" id="i-bar"></div></div><div class="progress-text" id="i-ptxt"></div></div>
+  <div class="status" id="i-status"></div>
+  <a class="download-btn" id="i-dl" download>&#11015; Download PDF</a>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function(){
+var jsPDF=window.jspdf.jsPDF;
+function fmt(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function $(id){return document.getElementById(id);}
+function show(el){el.classList.add('visible')}
+function hide(el){el.classList.remove('visible')}
+
+var drop=$('i-drop'),fileIn=$('i-file'),fileIn2=$('i-file2'),list=$('i-list'),
+    addWrap=$('i-add-wrap'),addMore=$('i-add-more'),opts=$('i-opts'),
+    btn=$('i-btn'),prog=$('i-prog'),bar=$('i-bar'),ptxt=$('i-ptxt'),
+    status=$('i-status'),dl=$('i-dl');
+var files=[],pageSize='fit';
+
+function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+function setP(p,t){bar.style.width=p+'%';ptxt.textContent=t;}
+
+document.querySelectorAll('#i-size-presets .preset').forEach(function(p){
+  p.addEventListener('click',function(){
+    document.querySelectorAll('#i-size-presets .preset').forEach(function(x){x.classList.remove('active');});
+    p.classList.add('active');pageSize=p.dataset.v;
+  });
+});
+
+function renderList(){
+  list.innerHTML='';
+  files.forEach(function(f,i){
+    var el=document.createElement('div');el.className='file-list-item';
+    el.innerHTML='<span class="fli-grip">&#9776;</span><span class="fli-num">'+(i+1)+'</span><span class="fli-name">'+f.name+'</span><span class="fli-size">'+fmt(f.size)+'</span><button class="fli-rm">&times;</button>';
+    el.querySelector('.fli-rm').addEventListener('click',function(){files.splice(i,1);renderList();});
+    el.draggable=true;
+    el.addEventListener('dragstart',function(e){e.dataTransfer.setData('text/plain',i);el.style.opacity='.5';});
+    el.addEventListener('dragend',function(){el.style.opacity='1';});
+    el.addEventListener('dragover',function(e){e.preventDefault();el.style.borderTop='2px solid var(--primary)';});
+    el.addEventListener('dragleave',function(){el.style.borderTop='';});
+    el.addEventListener('drop',function(e){e.preventDefault();el.style.borderTop='';
+      var from=parseInt(e.dataTransfer.getData('text/plain'));var to=i;
+      if(from===to)return;var item=files.splice(from,1)[0];files.splice(to,0,item);renderList();
+    });
+    list.appendChild(el);
+  });
+  if(files.length>0){show(btn);addWrap.style.display='block';opts.style.display='block';drop.style.display='none';}
+  else{hide(btn);addWrap.style.display='none';opts.style.display='none';drop.style.display='';}
+}
+
+function addFiles(fl){
+  for(var i=0;i<fl.length;i++){if(fl[i].type.startsWith('image/'))files.push(fl[i]);}
+  status.className='status';hide(dl);renderList();
+}
+
+fileIn.addEventListener('change',function(e){addFiles(e.target.files);fileIn.value='';});
+fileIn2.addEventListener('change',function(e){addFiles(e.target.files);fileIn2.value='';});
+addMore.addEventListener('click',function(){fileIn2.click();});
+drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');addFiles(e.dataTransfer.files);});
+
+function loadImage(file){
+  return new Promise(function(resolve,reject){
+    var img=new Image();img.onload=function(){resolve(img);};img.onerror=reject;
+    img.src=URL.createObjectURL(file);
+  });
+}
+
+btn.addEventListener('click',async function(){
+  if(files.length===0)return;
+  btn.disabled=true;btn.textContent='\u23F3 Creating...';show(prog);hide(dl);
+  status.className='status';setP(5,'Starting...');
+  try{
+    var doc=null;
+    for(var i=0;i<files.length;i++){
+      setP(5+Math.round(i/files.length*85),files[i].name);
+      var img=await loadImage(files[i]);
+      var iw=img.width,ih=img.height;
+      var wPt,hPt,imgX=0,imgY=0,imgW,imgH;
+      if(pageSize==='a4'){wPt=595.28;hPt=841.89;}
+      else if(pageSize==='letter'){wPt=612;hPt=792;}
+      else{wPt=iw*.75;hPt=ih*.75;} // fit
+      var orient=wPt>hPt?'l':'p';
+      if(pageSize!=='fit'){
+        // Fit image within page with margins
+        var margin=28;var aw=wPt-2*margin,ah=hPt-2*margin;
+        var scale=Math.min(aw/iw,ah/ih);
+        imgW=iw*scale;imgH=ih*scale;imgX=(wPt-imgW)/2;imgY=(hPt-imgH)/2;
+      }else{imgW=wPt;imgH=hPt;}
+      // Render to canvas for consistent output
+      var c=document.createElement('canvas');c.width=iw;c.height=ih;
+      var cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,iw,ih);cx.drawImage(img,0,0);
+      var dataUrl=c.toDataURL('image/jpeg',0.92);
+      if(i===0)doc=new jsPDF({orientation:orient,unit:'pt',format:[wPt,hPt]});
+      else doc.addPage([wPt,hPt],orient);
+      doc.addImage(dataUrl,'JPEG',imgX,imgY,imgW,imgH);
+    }
+    setP(95,'Finalizing...');
+    var blob=doc.output('blob');var url=URL.createObjectURL(blob);
+    dl.href=url;dl.download='images_combined.pdf';show(dl);
+    setP(100,'Done!');setStatus(files.length+' image(s) → PDF · '+fmt(blob.size),'success');
+  }catch(err){console.error(err);setStatus('Error: '+(err.message||err),'error');hide(prog);
+  }finally{btn.disabled=false;btn.textContent='\uD83D\uDCC4 Create PDF';}
+});
+})();
+</script>
+</body>
+</html>

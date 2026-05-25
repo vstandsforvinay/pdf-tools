@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>OCR — Text from Image — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+<style>
+.ocr-output{margin-top:.8rem;padding:.8rem;background:var(--bg);border-radius:8px;font-size:.85rem;line-height:1.6;white-space:pre-wrap;word-break:break-word;max-height:50vh;overflow-y:auto;display:none}
+.ocr-output.visible{display:block}
+.ocr-actions{display:flex;gap:.4rem;margin-top:.5rem;flex-wrap:wrap}
+.ocr-actions button{padding:.4rem .7rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;font-size:.78rem;transition:all .15s}
+.ocr-actions button:hover{border-color:var(--primary);color:var(--primary)}
+</style>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#128221; OCR — Text from <span>Image</span></h1>
+  <p>Extract text from images using Tesseract.js. Runs locally in your browser.</p>
+</div>
+<div class="card">
+  <div class="drop-zone" id="oc-drop"><input type="file" id="oc-file" accept="image/*"/><div class="icon">&#128221;</div><div class="label">Select an image with text</div></div>
+  <div class="file-info" id="oc-info"><div class="fi">&#128206;</div><div class="fd"><div class="fn" id="oc-fn"></div><div class="fs" id="oc-fs"></div></div><button class="rb" id="oc-rm">&times;</button></div>
+  <div class="preview-area" id="oc-preview"><img id="oc-img" alt="Preview"/></div>
+  <div class="field" id="oc-lang-field">
+    <label>Language</label>
+    <div class="presets">
+      <div class="preset active" data-v="eng">English</div>
+      <div class="preset" data-v="hin">Hindi</div>
+      <div class="preset" data-v="spa">Spanish</div>
+      <div class="preset" data-v="fra">French</div>
+      <div class="preset" data-v="deu">German</div>
+      <div class="preset" data-v="chi_sim">Chinese</div>
+      <div class="preset" data-v="jpn">Japanese</div>
+      <div class="preset" data-v="ara">Arabic</div>
+    </div>
+  </div>
+  <button class="action-btn" id="oc-btn">&#128221; Extract Text</button>
+  <div class="progress-container" id="oc-prog"><div class="progress-bar-bg"><div class="progress-bar" id="oc-bar"></div></div><div class="progress-text" id="oc-ptxt"></div></div>
+  <div class="status" id="oc-status"></div>
+  <div class="ocr-output" id="oc-output"></div>
+  <div class="ocr-actions" id="oc-actions" style="display:none">
+    <button id="oc-copy">&#128203; Copy Text</button>
+    <button id="oc-download">&#11015; Download as TXT</button>
+  </div>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+(function(){
+function fmt(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function $(id){return document.getElementById(id);}
+function show(el){el.classList.add('visible')}
+function hide(el){el.classList.remove('visible')}
+
+var drop=$('oc-drop'),fileIn=$('oc-file'),info=$('oc-info'),fn=$('oc-fn'),fs=$('oc-fs'),rm=$('oc-rm'),
+    preview=$('oc-preview'),imgEl=$('oc-img'),langField=$('oc-lang-field'),
+    btn=$('oc-btn'),prog=$('oc-prog'),bar=$('oc-bar'),ptxt=$('oc-ptxt'),
+    status=$('oc-status'),output=$('oc-output'),actions=$('oc-actions'),file=null;
+var lang='eng';
+
+function setStatus(m,t){status.textContent=m;status.className='status visible '+t;}
+function setP(p,t){bar.style.width=p+'%';ptxt.textContent=t;}
+
+document.querySelectorAll('#oc-lang-field .preset').forEach(function(p){
+  p.addEventListener('click',function(){
+    document.querySelectorAll('#oc-lang-field .preset').forEach(function(x){x.classList.remove('active');});
+    p.classList.add('active');lang=p.dataset.v;
+  });
+});
+
+function onFile(f){
+  if(!f||!f.type.startsWith('image/'))return;
+  file=f;fn.textContent=f.name;fs.textContent=fmt(f.size);
+  show(info);show(langField);show(btn);drop.style.display='none';
+  status.className='status';output.classList.remove('visible');actions.style.display='none';
+  imgEl.src=URL.createObjectURL(f);preview.classList.add('visible');
+}
+function reset(){file=null;fileIn.value='';hide(info);hide(langField);hide(btn);hide(prog);
+  status.className='status';drop.style.display='';preview.classList.remove('visible');
+  output.classList.remove('visible');actions.style.display='none';}
+
+fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+rm.addEventListener('click',reset);
+
+btn.addEventListener('click',async function(){
+  if(!file)return;
+  btn.disabled=true;btn.textContent='\u23F3 Recognizing...';show(prog);
+  status.className='status';output.classList.remove('visible');actions.style.display='none';
+  setP(5,'Loading OCR engine (first time downloads language data)...');
+  try{
+    var result=await Tesseract.recognize(file,lang,{
+      logger:function(m){
+        if(m.status==='recognizing text')setP(10+Math.round(m.progress*80),'Recognizing text...');
+        else if(m.status)setP(5,m.status+'...');
+      }
+    });
+    var text=result.data.text.trim();
+    if(!text){setStatus('No text found in this image.','error');hide(prog);return;}
+    output.textContent=text;output.classList.add('visible');
+    actions.style.display='flex';
+    setP(100,'Done!');setStatus('Extracted '+text.split(/\s+/).length+' words.','success');
+  }catch(err){console.error(err);setStatus('Error: '+(err.message||err),'error');hide(prog);
+  }finally{btn.disabled=false;btn.textContent='\uD83D\uDCDD Extract Text';}
+});
+
+$('oc-copy').addEventListener('click',function(){
+  navigator.clipboard.writeText(output.textContent).then(function(){
+    $('oc-copy').textContent='Copied!';setTimeout(function(){$('oc-copy').textContent='\uD83D\uDCCB Copy Text';},1000);
+  });
+});
+$('oc-download').addEventListener('click',function(){
+  var blob=new Blob([output.textContent],{type:'text/plain'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=(file?file.name.replace(/\.[^.]+$/,''):'text')+'_ocr.txt';a.click();
+});
+})();
+</script>
+</body>
+</html>

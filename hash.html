@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<title>File Hash — PDF Tools</title>
+<link rel="stylesheet" href="shared.css"/>
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg"/>
+<style>
+.hash-results{margin-top:.8rem}
+.hash-row{display:flex;align-items:center;gap:.5rem;padding:.5rem .7rem;background:var(--bg);border-radius:8px;margin-bottom:.4rem;cursor:pointer;transition:border .2s;border:1px solid transparent}
+.hash-row:hover{border-color:var(--primary)}
+.hash-label{font-size:.75rem;color:var(--text-muted);min-width:60px;font-weight:600}
+.hash-value{font-family:monospace;font-size:.78rem;word-break:break-all;flex:1}
+.hash-copy{font-size:.7rem;color:var(--primary);white-space:nowrap}
+</style>
+</head>
+<body>
+<nav class="top-nav"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Tools</a></nav>
+<div class="tool-header">
+  <h1>&#128272; File <span>Hash</span></h1>
+  <p>Calculate SHA-256, SHA-1, and MD5 checksums for any file.</p>
+</div>
+<div class="card">
+  <div class="drop-zone" id="h-drop"><input type="file" id="h-file"/><div class="icon">&#128272;</div><div class="label">Select any file</div></div>
+  <div class="file-info" id="h-info"><div class="fi">&#128206;</div><div class="fd"><div class="fn" id="h-fn"></div><div class="fs" id="h-fs"></div></div><button class="rb" id="h-rm">&times;</button></div>
+  <div class="progress-container" id="h-prog"><div class="progress-bar-bg"><div class="progress-bar" id="h-bar"></div></div><div class="progress-text" id="h-ptxt"></div></div>
+  <div class="hash-results" id="h-results"></div>
+  <div class="status" id="h-status"></div>
+  <div class="field" id="h-verify-field">
+    <label>Verify against a known hash (optional)</label>
+    <div class="field-row"><input type="text" id="h-verify" placeholder="Paste expected hash to compare"/></div>
+    <div id="h-verify-result" style="font-size:.8rem;margin-top:.3rem"></div>
+  </div>
+</div>
+<footer><div class="footer-tagline">PDF Tools &mdash; Your files never leave your device.</div></footer>
+<script>
+(function(){
+function fmt(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function $(id){return document.getElementById(id);}
+function show(el){el.classList.add('visible')}
+function hide(el){el.classList.remove('visible')}
+
+var drop=$('h-drop'),fileIn=$('h-file'),info=$('h-info'),fn=$('h-fn'),fs=$('h-fs'),rm=$('h-rm'),
+    prog=$('h-prog'),bar=$('h-bar'),ptxt=$('h-ptxt'),results=$('h-results'),
+    status=$('h-status'),verifyField=$('h-verify-field'),verifyIn=$('h-verify'),verifyResult=$('h-verify-result');
+var hashes={};
+
+function setP(p,t){bar.style.width=p+'%';ptxt.textContent=t;}
+
+async function computeHash(ab,algo){
+  var hash=await crypto.subtle.digest(algo,ab);
+  return Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+// MD5 — Web Crypto doesn't support it, so minimal implementation
+function md5(buffer){
+  var bytes=new Uint8Array(buffer);
+  // Simple MD5 implementation
+  function md5cycle(x,k){var a=x[0],b=x[1],c=x[2],d=x[3];
+    a=ff(a,b,c,d,k[0],7,-680876936);d=ff(d,a,b,c,k[1],12,-389564586);c=ff(c,d,a,b,k[2],17,606105819);b=ff(b,c,d,a,k[3],22,-1044525330);
+    a=ff(a,b,c,d,k[4],7,-176418897);d=ff(d,a,b,c,k[5],12,1200080426);c=ff(c,d,a,b,k[6],17,-1473231341);b=ff(b,c,d,a,k[7],22,-45705983);
+    a=ff(a,b,c,d,k[8],7,1770035416);d=ff(d,a,b,c,k[9],12,-1958414417);c=ff(c,d,a,b,k[10],17,-42063);b=ff(b,c,d,a,k[11],22,-1990404162);
+    a=ff(a,b,c,d,k[12],7,1804603682);d=ff(d,a,b,c,k[13],12,-40341101);c=ff(c,d,a,b,k[14],17,-1502002290);b=ff(b,c,d,a,k[15],22,1236535329);
+    a=gg(a,b,c,d,k[1],5,-165796510);d=gg(d,a,b,c,k[6],9,-1069501632);c=gg(c,d,a,b,k[11],14,643717713);b=gg(b,c,d,a,k[0],20,-373897302);
+    a=gg(a,b,c,d,k[5],5,-701558691);d=gg(d,a,b,c,k[10],9,38016083);c=gg(c,d,a,b,k[15],14,-660478335);b=gg(b,c,d,a,k[4],20,-405537848);
+    a=gg(a,b,c,d,k[9],5,568446438);d=gg(d,a,b,c,k[14],9,-1019803690);c=gg(c,d,a,b,k[3],14,-187363961);b=gg(b,c,d,a,k[8],20,1163531501);
+    a=gg(a,b,c,d,k[13],5,-1444681467);d=gg(d,a,b,c,k[2],9,-51403784);c=gg(c,d,a,b,k[7],14,1735328473);b=gg(b,c,d,a,k[12],20,-1926607734);
+    a=hh(a,b,c,d,k[5],4,-378558);d=hh(d,a,b,c,k[8],11,-2022574463);c=hh(c,d,a,b,k[11],16,1839030562);b=hh(b,c,d,a,k[14],23,-35309556);
+    a=hh(a,b,c,d,k[1],4,-1530992060);d=hh(d,a,b,c,k[4],11,1272893353);c=hh(c,d,a,b,k[7],16,-155497632);b=hh(b,c,d,a,k[10],23,-1094730640);
+    a=hh(a,b,c,d,k[13],4,681279174);d=hh(d,a,b,c,k[0],11,-358537222);c=hh(c,d,a,b,k[3],16,-722521979);b=hh(b,c,d,a,k[6],23,76029189);
+    a=hh(a,b,c,d,k[9],4,-640364487);d=hh(d,a,b,c,k[12],11,-421815835);c=hh(c,d,a,b,k[15],16,530742520);b=hh(b,c,d,a,k[2],23,-995338651);
+    a=ii(a,b,c,d,k[0],6,-198630844);d=ii(d,a,b,c,k[7],10,1126891415);c=ii(c,d,a,b,k[14],15,-1416354905);b=ii(b,c,d,a,k[5],21,-57434055);
+    a=ii(a,b,c,d,k[12],6,1700485571);d=ii(d,a,b,c,k[3],10,-1894986606);c=ii(c,d,a,b,k[10],15,-1051523);b=ii(b,c,d,a,k[1],21,-2054922799);
+    a=ii(a,b,c,d,k[8],6,1873313359);d=ii(d,a,b,c,k[15],10,-30611744);c=ii(c,d,a,b,k[6],15,-1560198380);b=ii(b,c,d,a,k[13],21,1309151649);
+    a=ii(a,b,c,d,k[4],6,-145523070);d=ii(d,a,b,c,k[11],10,-1120210379);c=ii(c,d,a,b,k[2],15,718787259);b=ii(b,c,d,a,k[9],21,-343485551);
+    x[0]=add32(a,x[0]);x[1]=add32(b,x[1]);x[2]=add32(c,x[2]);x[3]=add32(d,x[3]);
+  }
+  function cmn(q,a,b,x,s,t){a=add32(add32(a,q),add32(x,t));return add32((a<<s)|(a>>>(32-s)),b);}
+  function ff(a,b,c,d,x,s,t){return cmn((b&c)|((~b)&d),a,b,x,s,t);}
+  function gg(a,b,c,d,x,s,t){return cmn((b&d)|(c&(~d)),a,b,x,s,t);}
+  function hh(a,b,c,d,x,s,t){return cmn(b^c^d,a,b,x,s,t);}
+  function ii(a,b,c,d,x,s,t){return cmn(c^(b|(~d)),a,b,x,s,t);}
+  function add32(a,b){return(a+b)&0xFFFFFFFF;}
+
+  var n=bytes.length;var tail=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+  var state=[1732584193,-271733879,-1732584194,271733878];var i;
+  for(i=64;i<=n;i+=64){
+    var k=[];for(var j=i-64;j<i;j+=4)k.push(bytes[j]|(bytes[j+1]<<8)|(bytes[j+2]<<16)|(bytes[j+3]<<24));
+    md5cycle(state,k);
+  }
+  for(var j=0;j<16;j++)tail[j]=0;
+  for(j=0;j<n%64;j++)tail[j>>2]|=bytes[i-64+j]<<((j%4)<<3);
+  tail[j>>2]|=0x80<<((j%4)<<3);
+  if(j>55){md5cycle(state,tail);for(j=0;j<16;j++)tail[j]=0;}
+  tail[14]=n*8;tail[15]=0;md5cycle(state,tail);
+  var hex='';for(i=0;i<4;i++)for(j=0;j<4;j++)hex+=((state[i]>>(j*8))&255).toString(16).padStart(2,'0');
+  return hex;
+}
+
+async function onFile(f){
+  if(!f)return;fn.textContent=f.name;fs.textContent=fmt(f.size);
+  show(info);drop.style.display='none';show(prog);results.innerHTML='';
+  verifyField.classList.add('visible');verifyResult.textContent='';
+  setP(10,'Reading file...');
+  var ab=await f.arrayBuffer();
+  setP(30,'Computing SHA-256...');
+  hashes['SHA-256']=await computeHash(ab,'SHA-256');
+  setP(50,'Computing SHA-1...');
+  hashes['SHA-1']=await computeHash(ab,'SHA-1');
+  setP(70,'Computing MD5...');
+  hashes['MD5']=md5(ab);
+  setP(100,'Done!');hide(prog);
+
+  ['SHA-256','SHA-1','MD5'].forEach(function(algo){
+    var row=document.createElement('div');row.className='hash-row';
+    row.innerHTML='<span class="hash-label">'+algo+'</span><span class="hash-value">'+hashes[algo]+'</span><span class="hash-copy">Copy</span>';
+    row.addEventListener('click',function(){
+      navigator.clipboard.writeText(hashes[algo]).then(function(){
+        row.querySelector('.hash-copy').textContent='Copied!';
+        setTimeout(function(){row.querySelector('.hash-copy').textContent='Copy';},1000);
+      });
+    });
+    results.appendChild(row);
+  });
+}
+
+function reset(){fileIn.value='';hide(info);hide(prog);results.innerHTML='';drop.style.display='';verifyField.classList.remove('visible');hashes={};}
+
+fileIn.addEventListener('change',function(e){if(e.target.files.length)onFile(e.target.files[0]);});
+drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('dragover');});
+drop.addEventListener('dragleave',function(){drop.classList.remove('dragover');});
+drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('dragover');if(e.dataTransfer.files.length)onFile(e.dataTransfer.files[0]);});
+rm.addEventListener('click',reset);
+
+verifyIn.addEventListener('input',function(){
+  var v=verifyIn.value.trim().toLowerCase();if(!v){verifyResult.textContent='';return;}
+  var match=false;
+  for(var k in hashes){if(hashes[k]===v){match=true;verifyResult.innerHTML='<span style="color:var(--success)">✓ Matches '+k+'</span>';break;}}
+  if(!match)verifyResult.innerHTML='<span style="color:var(--error)">✗ No match</span>';
+});
+})();
+</script>
+</body>
+</html>
