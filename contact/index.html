@@ -2,201 +2,106 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Vehicle Relay</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Vehicle Owner</title>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
-    body { background-color: #0b0f19; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; color: #ffffff; }
-
-    /* --- Standard Contact Card (Caller UI) --- */
-    .card { background: #ffffff; width: 100%; max-width: 400px; border-radius: 24px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); text-align: center; color: #1e293b; position: relative; }
-    .badge { display: inline-block; padding: 4px 12px; background: #e0f2fe; color: #0284c7; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 12px; }
-    h1 { font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 6px; }
-    p.subtext { color: #64748b; font-size: 13px; margin-bottom: 20px; }
-    .btn { display: block; width: 100%; padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; border: none; margin-bottom: 10px; transition: 0.2s; }
-    .btn-call { background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3); }
-    .btn-preset { background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; text-align: left; padding: 12px 16px; font-size: 14px; }
-    .btn-preset:hover { background: #f1f5f9; }
-    .custom-box { margin-top: 14px; text-align: left; }
-    textarea { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; resize: none; font-size: 13.5px; outline: none; }
-    textarea:focus { border-color: #0284c7; }
-    .btn-send { background: #0284c7; color: white; margin-top: 6px; }
-    .status { margin-top: 14px; font-size: 13px; font-weight: 600; display: none; }
-
-    /* Caller In-Call Status Card */
-    #callerCallScreen { display: none; margin-top: 10px; }
-    .calling-pulsing-avatar { width: 72px; height: 72px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 12px; animation: pulse 1.8s infinite; }
-    @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.8; } }
-    .btn-end { background: #ef4444; color: white; font-size: 15px; margin-top: 16px; }
-
-    /* Caller Call Ended Reset View */
-    #callerEndedView { display: none; padding: 20px 0; }
-    .btn-reset { background: #0f172a; color: white; margin-top: 16px; }
-
-    /* --- iOS Full-Screen Receiver Interface --- */
-    #iosCallView { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: radial-gradient(circle at top, #1e293b 0%, #000000 100%); z-index: 9999; flex-direction: column; justify-content: space-between; align-items: center; padding: 70px 24px 80px; text-align: center; }
-    .ios-header { display: flex; flex-direction: column; align-items: center; }
-    .ios-avatar { width: 96px; height: 96px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 46px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-    .ios-title { font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px; }
-    .ios-subtitle { font-size: 15px; color: #94a3b8; margin-top: 6px; font-weight: 400; }
-
-    /* iOS In-Call Action Grid */
-    .ios-actions-grid { display: none; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 100%; max-width: 320px; margin: 20px 0; }
-    .ios-btn-col { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
-    .ios-circle-btn { width: 68px; height: 68px; border-radius: 50%; background: rgba(255,255,255,0.15); backdrop-filter: blur(20px); border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; transition: 0.2s; }
-    .ios-circle-btn.active { background: #ffffff; color: #000000; }
-    .ios-btn-lbl { font-size: 12px; color: #cbd5e1; font-weight: 500; }
-
-    /* iOS Incoming Triggers */
-    .ios-call-triggers { display: flex; justify-content: space-around; width: 100%; max-width: 320px; align-items: center; }
-    .ios-trigger-col { display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; }
-    .ios-btn-decline { width: 74px; height: 74px; border-radius: 50%; background: #ef4444; border: none; display: flex; align-items: center; justify-content: center; font-size: 32px; color: white; box-shadow: 0 6px 20px rgba(239,68,68,0.4); }
-    .ios-btn-accept { width: 74px; height: 74px; border-radius: 50%; background: #22c55e; border: none; display: flex; align-items: center; justify-content: center; font-size: 32px; color: white; box-shadow: 0 6px 20px rgba(34,197,94,0.4); }
-
-    /* Receiver Terminal Screen */
-    #receiverEndedScreen { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000000; z-index: 10000; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 24px; }
-    .ended-title { font-size: 24px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px; }
-    .ended-sub { color: #64748b; font-size: 14px; margin-bottom: 24px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+    .card { background: #ffffff; width: 100%; max-width: 420px; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); text-align: center; }
+    .badge { display: inline-block; padding: 4px 12px; background: #e0f2fe; color: #0369a1; border-radius: 999px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+    h1 { font-size: 20px; color: #111827; margin-bottom: 8px; }
+    p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+    .btn { display: block; width: 100%; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; border: none; margin-bottom: 12px; transition: 0.2s; }
+    .btn-call { background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-call:hover { background: #15803d; }
+    .btn-end { background: #dc2626; color: white; margin-top: 10px; }
+    .btn-preset { background: #f9fafb; color: #374151; border: 1px solid #e5e7eb; text-align: left; padding: 12px 16px; }
+    .btn-preset:hover { background: #f3f4f6; }
+    .custom-box { margin-top: 16px; text-align: left; }
+    textarea { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; resize: none; font-size: 14px; outline: none; }
+    .btn-send { background: #2563eb; color: white; margin-top: 8px; }
+    .status { margin-top: 16px; font-size: 14px; color: #059669; display: none; font-weight: 500; }
+    
+    /* Dedicated In-Call Screen */
+    #callScreen { display: none; margin-top: 16px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .pulsing-dot { width: 12px; height: 12px; background: #16a34a; border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
   </style>
 </head>
 <body>
 
-  <!-- CALLER VIEW -->
-  <div class="card" id="callerCard">
-    <div id="callerMainUI">
-      <div class="badge">Shielded Relay</div>
-      <h1>Contact Owner</h1>
-      <p class="subtext">Identity &amp; phone numbers are completely masked.</p>
+  <div class="card">
+    <div class="badge">Shielded Relay</div>
+    <h1>Contact Owner</h1>
+    <p>Identity & phone numbers are completely masked.</p>
 
-      <button class="btn btn-call" id="callBtn" onclick="startCallerCall()">
-        📞 Start Voice Call
+    <!-- Normal Interface -->
+    <div id="mainInterface">
+      <button class="btn btn-call" id="callBtn" onclick="initiateAudioCall()">
+        📞 Start Private Voice Call
       </button>
 
-      <div style="margin: 22px 0 16px; border-top: 1px solid #f1f5f9; position: relative;">
-        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #fff; padding: 0 12px; color: #94a3af; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">OR SEND QUICK ALERT</span>
+      <div style="margin: 20px 0; border-top: 1px solid #e5e7eb; position: relative;">
+        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #fff; padding: 0 10px; color: #9ca3af; font-size: 12px;">OR SEND QUICK ALERT</span>
       </div>
 
-      <button class="btn btn-preset" onclick="sendRelayAlert('🚗 Vehicle is blocking the gate/way')">
+      <button class="btn btn-preset" onclick="sendTelegramAlert('🚗 Vehicle is blocking the gate/way')">
         🚗 Vehicle is blocking the gate
       </button>
-      <button class="btn btn-preset" onclick="sendRelayAlert('⚠️ Lights left on / Window open')">
+      <button class="btn btn-preset" onclick="sendTelegramAlert('⚠️ Lights left on / Window open')">
         ⚠️ Lights on / Window open
       </button>
-      <button class="btn btn-preset" onclick="sendRelayAlert('🚨 Urgent: Please attend to vehicle')">
-        🚨 Urgent: Please attend to vehicle
+      <button class="btn btn-preset" onclick="sendTelegramAlert('🚨 Urgent: Attend to vehicle')">
+        🚨 Urgent: Attend to vehicle
       </button>
 
       <div class="custom-box">
-        <textarea id="customMsg" rows="2" placeholder="Type a message to owner..."></textarea>
+        <textarea id="customMsg" rows="2" placeholder="Type a message to the owner..."></textarea>
         <button class="btn btn-send" onclick="sendCustomAlert()">Send Message</button>
       </div>
     </div>
 
-    <!-- Active Caller Call Screen -->
-    <div id="callerCallScreen">
-      <div class="calling-pulsing-avatar">📞</div>
-      <h2 style="font-size: 18px; color:#0f172a; margin-bottom: 4px;" id="callerStatusTitle">Ringing Owner...</h2>
-      <p style="font-size: 13px; color:#64748b;" id="callerStatusSub">Waiting for owner to pick up...</p>
-      <button class="btn btn-end" onclick="manualEndCall(true)">End Call</button>
+    <!-- Live In-Call Box -->
+    <div id="callScreen">
+      <h3 style="font-size: 16px; margin-bottom: 8px;">
+        <span class="pulsing-dot"></span><span id="callStateLabel">Calling owner...</span>
+      </h3>
+      <p id="callSubtext" style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Waiting for owner to answer...</p>
+      <button class="btn btn-end" onclick="endCurrentCall()">Disconnect Call</button>
     </div>
 
-    <!-- Caller Call Finished Screen -->
-    <div id="callerEndedView">
-      <div style="font-size: 40px; margin-bottom: 10px;">🏁</div>
-      <h2 style="font-size: 19px; color:#0f172a; margin-bottom: 6px;">Call Finished</h2>
-      <p style="font-size: 13px; color:#64748b;">The audio session has ended.</p>
-      <button class="btn btn-reset" onclick="resetCallerInterface()">Done / Back to Contact</button>
-    </div>
+    <!-- Hidden audio element for WebRTC sound playback -->
+    <audio id="remoteAudio" autoplay></audio>
 
     <div id="statusMsg" class="status"></div>
   </div>
 
-  <!-- RECEIVER VIEW (iPhone UI) -->
-  <div id="iosCallView">
-    <div class="ios-header">
-      <div class="ios-avatar">🚗</div>
-      <div class="ios-title" id="iosContactTitle">Vehicle Contact</div>
-      <div class="ios-subtitle" id="iosCallTimer">Incoming Call...</div>
-    </div>
-
-    <!-- Receiver In-Call Grid -->
-    <div class="ios-actions-grid" id="iosInCallControls">
-      <div class="ios-btn-col" onclick="toggleMute()">
-        <button class="ios-circle-btn" id="iosMuteBtn">🎤</button>
-        <span class="ios-btn-lbl" id="iosMuteLbl">Mute</span>
-      </div>
-      <div class="ios-btn-col" onclick="toggleSpeaker()">
-        <button class="ios-circle-btn" id="iosSpeakerBtn">🔊</button>
-        <span class="ios-btn-lbl" id="iosSpeakerLbl">Speaker</span>
-      </div>
-      <div class="ios-btn-col" onclick="manualEndCall(false)">
-        <button class="ios-circle-btn" style="background:#ef4444;">☎️</button>
-        <span class="ios-btn-lbl">End</span>
-      </div>
-    </div>
-
-    <!-- Receiver Accept / Decline Buttons -->
-    <div class="ios-call-triggers" id="iosIncomingActions">
-      <div class="ios-trigger-col" onclick="manualEndCall(false)">
-        <button class="ios-btn-decline">✕</button>
-        <span class="ios-btn-lbl" style="font-size:13px;">Decline</span>
-      </div>
-      <div class="ios-trigger-col" onclick="acceptIncomingCall()">
-        <button class="ios-btn-accept">📞</button>
-        <span class="ios-btn-lbl" style="font-size:13px;">Accept</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Receiver Call Ended Terminal Screen -->
-  <div id="receiverEndedScreen">
-    <div style="font-size: 50px; margin-bottom: 14px;">☎️</div>
-    <div class="ended-title">Call Ended</div>
-    <p class="ended-sub">You can safely close this browser tab.</p>
-  </div>
-
-  <audio id="remoteAudio" autoplay playsinline></audio>
-
   <script>
-    const RELAY_ENDPOINT = "https://qr-relay-proxy.vstandsforvinay.workers.dev";
-    const PEER_CONFIG = {
-      config: {
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" }
-        ]
-      }
-    };
+    const BOT_TOKEN = "8782291710:AAF-RK3POZGcNIUoBuxLl0CUXTlw0M-N1Kw";
+    const CHAT_ID = "5857595738";
 
     let peer = null;
     let activeCall = null;
     let localStream = null;
-    let callTimerInterval = null;
-    let secondsElapsed = 0;
-    let isMuted = false;
-    let targetCallerId = null;
 
     function showStatus(text, isError = false) {
       const el = document.getElementById("statusMsg");
       el.style.display = "block";
-      el.style.color = isError ? "#ef4444" : "#16a34a";
+      el.style.color = isError ? "#dc2626" : "#059669";
       el.innerText = text;
       setTimeout(() => { el.style.display = "none"; }, 5000);
     }
 
-    async function sendRelayAlert(text) {
+    async function sendTelegramAlert(text) {
       showStatus("Sending alert...");
+      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(text)}`;
       try {
-        const res = await fetch(RELAY_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: text })
-        });
+        const res = await fetch(url);
         if (res.ok) {
           showStatus("✓ Alert delivered to owner's phone!");
         } else {
-          showStatus("Failed to deliver alert.", true);
+          showStatus("Failed to deliver alert. Try again.", true);
         }
       } catch (err) {
         showStatus("Network error. Try again.", true);
@@ -206,165 +111,85 @@
     function sendCustomAlert() {
       const txt = document.getElementById("customMsg").value.trim();
       if (!txt) return;
-      sendRelayAlert(`📝 Note: ${txt}`);
+      sendTelegramAlert(`📝 Note from scanner: ${txt}`);
       document.getElementById("customMsg").value = "";
     }
 
+    // Call Engine using Native PeerJS WebRTC
     async function getMicrophone() {
       try {
-        return await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          },
-          video: false
-        });
+        return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       } catch (e) {
-        alert("Please allow microphone permissions to connect audio.");
+        alert("Please allow microphone access to make the audio call.");
         return null;
       }
     }
 
-    function playAudioStream(remoteStream) {
-      const audio = document.getElementById("remoteAudio");
-      audio.srcObject = remoteStream;
-      audio.volume = 1.0;
-      audio.play().catch(err => {
-        console.warn("Autoplay deferred until interaction:", err);
-      });
-    }
-
-    function startTimer(targetElId) {
-      if (callTimerInterval) return;
-      secondsElapsed = 0;
-      callTimerInterval = setInterval(() => {
-        secondsElapsed++;
-        const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
-        const s = String(secondsElapsed % 60).padStart(2, '0');
-        const el = document.getElementById(targetElId);
-        if (el) el.innerText = `${m}:${s}`;
-      }, 1000);
-    }
-
-    function toggleMute() {
-      if (!localStream) return;
-      isMuted = !isMuted;
-      localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
-      document.getElementById("iosMuteBtn").classList.toggle("active", isMuted);
-      document.getElementById("iosMuteLbl").innerText = isMuted ? "Unmute" : "Mute";
-    }
-
-    function toggleSpeaker() {
-      const audio = document.getElementById("remoteAudio");
-      audio.volume = (audio.volume === 1.0) ? 0.5 : 1.0;
-      document.getElementById("iosSpeakerBtn").classList.toggle("active", audio.volume === 1.0);
-      document.getElementById("iosSpeakerLbl").innerText = (audio.volume === 1.0) ? "Max" : "Speaker";
-    }
-
-    function resetCallerInterface() {
-      document.getElementById("callerEndedView").style.display = "none";
-      document.getElementById("callerCallScreen").style.display = "none";
-      document.getElementById("callerMainUI").style.display = "block";
-    }
-
-    function manualEndCall(isCaller = false) {
-      clearInterval(callTimerInterval);
-      callTimerInterval = null;
-
-      if (activeCall) {
-        try { activeCall.close(); } catch (e) {}
-        activeCall = null;
-      }
-      if (localStream) {
-        localStream.getTracks().forEach(t => t.stop());
-        localStream = null;
-      }
-      if (peer) {
-        peer.destroy();
-        peer = null;
-      }
-
-      if (isCaller) {
-        document.getElementById("callerCallScreen").style.display = "none";
-        document.getElementById("callerEndedView").style.display = "block";
-      } else {
-        document.getElementById("iosCallView").style.display = "none";
-        document.getElementById("receiverEndedScreen").style.display = "flex";
-      }
-    }
-
-    // CALLER SIDE
-    async function startCallerCall() {
+    async function initiateAudioCall() {
       localStream = await getMicrophone();
       if (!localStream) return;
 
-      document.getElementById("callerMainUI").style.display = "none";
-      document.getElementById("callerCallScreen").style.display = "block";
-      document.getElementById("callerStatusTitle").innerText = "Connecting...";
+      document.getElementById("mainInterface").style.display = "none";
+      document.getElementById("callScreen").style.display = "block";
 
-      const callerId = "c" + Math.random().toString(36).substring(2, 8);
-      peer = new Peer(callerId, PEER_CONFIG);
+      const callerId = "caller_" + Math.random().toString(36).substring(2, 9);
+      peer = new Peer(callerId);
 
       peer.on("open", () => {
-        const canonicalUrl = `https://vstandsforvinay.github.io/pdf-tools/contact/?call=${callerId}`;
-        const alertMsg = `📞 INCOMING VOICE CALL!\n\nOpen link to answer (Use Chrome/Safari):\n${canonicalUrl}`;
-        document.getElementById("callerStatusTitle").innerText = "Ringing Owner...";
-        document.getElementById("callerStatusSub").innerText = "Notification sent. Waiting for owner to tap link...";
-        sendRelayAlert(alertMsg);
+        const answerUrl = `https://vstandsforvinay.github.io/pdf-tools/contact/?call=${callerId}`;
+        const msg = `📞 INCOMING VOICE CALL!\n\nTap link to answer:\n${answerUrl}`;
+        sendTelegramAlert(msg);
       });
 
-      peer.on("call", (incomingCall) => {
-        activeCall = incomingCall;
-        incomingCall.answer(localStream);
-
-        incomingCall.on("stream", (remoteStream) => {
-          playAudioStream(remoteStream);
-          document.getElementById("callerStatusTitle").innerText = "Call Connected";
-          startTimer("callerStatusSub");
-        });
-
-        // Do not auto-terminate on transient ICE close events
-        incomingCall.on("error", (err) => console.warn("Caller stream issue:", err));
+      peer.on("call", (incoming) => {
+        incoming.answer(localStream);
+        handleCallStream(incoming);
       });
     }
 
-    // RECEIVER SIDE
-    async function acceptIncomingCall() {
-      localStream = await getMicrophone();
-      if (!localStream) return;
+    function handleCallStream(call) {
+      activeCall = call;
+      document.getElementById("callStateLabel").innerText = "Call Connected (Live)";
+      document.getElementById("callSubtext").innerText = "Audio stream is active & private.";
 
-      document.getElementById("iosCallTimer").innerText = "Connecting...";
+      call.on("stream", (remoteStream) => {
+        const audio = document.getElementById("remoteAudio");
+        audio.srcObject = remoteStream;
+      });
 
-      const receiverId = "r" + Math.random().toString(36).substring(2, 8);
-      peer = new Peer(receiverId, PEER_CONFIG);
-
-      peer.on("open", () => {
-        const call = peer.call(targetCallerId, localStream);
-        activeCall = call;
-
-        call.on("stream", (remoteStream) => {
-          playAudioStream(remoteStream);
-          document.getElementById("iosIncomingActions").style.display = "none";
-          document.getElementById("iosInCallControls").style.display = "grid";
-          startTimer("iosCallTimer");
-        });
-
-        call.on("error", (err) => console.warn("Receiver stream issue:", err));
+      call.on("close", () => {
+        endCurrentCall(false);
       });
     }
 
-    window.onload = function() {
+    function endCurrentCall(reload = true) {
+      if (activeCall) activeCall.close();
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (peer) peer.destroy();
+      if (reload) window.location.href = window.location.pathname;
+    }
+
+    // Check if the page is opened by YOU (the receiver) answering from Telegram
+    window.onload = async function() {
       const urlParams = new URLSearchParams(window.location.search);
-      targetCallerId = urlParams.get("call");
+      const targetCallerId = urlParams.get("call");
 
       if (targetCallerId) {
-        document.getElementById("callerCard").style.display = "none";
-        document.getElementById("iosCallView").style.display = "flex";
-        document.getElementById("iosContactTitle").innerText = "Vehicle Contact";
-        document.getElementById("iosCallTimer").innerText = "Incoming Call...";
-        document.getElementById("iosIncomingActions").style.display = "flex";
-        document.getElementById("iosInCallControls").style.display = "none";
+        document.getElementById("mainInterface").style.display = "none";
+        document.getElementById("callScreen").style.display = "block";
+        document.getElementById("callStateLabel").innerText = "Connecting to caller...";
+        document.getElementById("callSubtext").innerText = "Setting up secure audio line...";
+
+        localStream = await getMicrophone();
+        if (!localStream) return;
+
+        const receiverId = "receiver_" + Math.random().toString(36).substring(2, 9);
+        peer = new Peer(receiverId);
+
+        peer.on("open", () => {
+          const call = peer.call(targetCallerId, localStream);
+          handleCallStream(call);
+        });
       }
     };
   </script>
