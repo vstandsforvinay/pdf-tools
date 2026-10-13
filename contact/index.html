@@ -78,8 +78,7 @@
   </div>
 
   <script>
-    const BOT_TOKEN = "8782291710:AAF-RK3POZGcNIUoBuxLl0CUXTlw0M-N1Kw";
-    const CHAT_ID = "5857595738";
+    const RELAY_ENDPOINT = "https://qr-relay-proxy.vstandsforvinay.workers.dev";
 
     let peer = null;
     let activeCall = null;
@@ -93,11 +92,14 @@
       setTimeout(() => { el.style.display = "none"; }, 5000);
     }
 
-    async function sendTelegramAlert(text) {
+    async function sendRelayAlert(text) {
       showStatus("Sending alert...");
-      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(text)}`;
       try {
-        const res = await fetch(url);
+        const res = await fetch(RELAY_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: text })
+        });
         if (res.ok) {
           showStatus("✓ Alert delivered to owner's phone!");
         } else {
@@ -111,7 +113,7 @@
     function sendCustomAlert() {
       const txt = document.getElementById("customMsg").value.trim();
       if (!txt) return;
-      sendTelegramAlert(`📝 Note from scanner: ${txt}`);
+      sendTelegramAlert(`${txt}`);
       document.getElementById("customMsg").value = "";
     }
 
