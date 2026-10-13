@@ -39,17 +39,17 @@
     </div>
 
     <!-- Preset Alerts -->
-    <button class="btn btn-preset" onclick="sendTelegramAlert('🚗 Vehicle is blocking the way / gate')">
+    <button class="btn btn-preset" onclick="sendTelegramAlert('🚗 Vehicle is blocking the gate/way')">
       🚗 Vehicle is blocking the gate
     </button>
     <button class="btn btn-preset" onclick="sendTelegramAlert('⚠️ Lights left on / Window open')">
       ⚠️ Lights on / Window open
     </button>
-    <button class="btn btn-preset" onclick="sendTelegramAlert('🚨 Urgent: Please attend to your vehicle')">
+    <button class="btn btn-preset" onclick="sendTelegramAlert('🚨 Urgent: Attend to vehicle')">
       🚨 Urgent: Attend to vehicle
     </button>
 
-    <!-- Custom Text Note -->
+    <!-- Custom Message -->
     <div class="custom-box">
       <textarea id="customMsg" rows="2" placeholder="Type a message to the owner..."></textarea>
       <button class="btn btn-send" onclick="sendCustomAlert()">Send Message</button>
@@ -93,16 +93,20 @@
     }
 
     function startVoIPCall() {
-      showStatus("Setting up call link...");
-      const roomId = "call_" + Math.random().toString(36).substring(2, 10);
-      const callUrl = `https://meet.jit.si/${roomId}#config.startWithVideoMuted=true`;
+      showStatus("Connecting audio line...");
+      // Unique random room ID
+      const roomId = "call" + Math.floor(100000 + Math.random() * 900000);
       
-      const alertText = `📞 INCOMING AUDIO CALL REQUEST!\n\nTap link to answer:\n${callUrl}`;
+      // VDO.Ninja audio-only room: 100% open WebRTC, no moderator or login prompt required
+      const callUrl = `https://vdo.ninja/?room=${roomId}&push&audioonly&cleanoutput`;
+      const answerUrl = `https://vdo.ninja/?room=${roomId}&view&audioonly`;
+
+      const alertText = `📞 INCOMING AUDIO CALL REQUEST!\n\nTap link below to pick up call:\n${answerUrl}`;
       sendTelegramAlert(alertText);
 
       setTimeout(() => {
         window.location.href = callUrl;
-      }, 1200);
+      }, 1000);
     }
   </script>
 </body>
