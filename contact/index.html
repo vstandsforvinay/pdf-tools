@@ -22,8 +22,6 @@
     textarea { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; resize: none; font-size: 14px; outline: none; }
     .btn-send { background: #2563eb; color: white; margin-top: 8px; }
     .status { margin-top: 16px; font-size: 14px; color: #059669; display: none; font-weight: 500; }
-    
-    /* Dedicated In-Call Screen */
     #callScreen { display: none; margin-top: 16px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
     .pulsing-dot { width: 12px; height: 12px; background: #16a34a; border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
@@ -32,8 +30,8 @@
 <body>
 
   <div class="card">
-    <div class="badge">Shielded Relay</div>
-    <h1>Contact Owner</h1>
+    <div class="badge">Vehicle Contact</div>
+    <h1>Contact Vehicle Owner</h1>
     <p>Identity & phone numbers are completely masked.</p>
 
     <!-- Normal Interface -->
@@ -71,7 +69,7 @@
       <button class="btn btn-end" onclick="endCurrentCall()">Disconnect Call</button>
     </div>
 
-    <!-- Hidden audio element for WebRTC sound playback -->
+    <!-- Audio Element -->
     <audio id="remoteAudio" autoplay></audio>
 
     <div id="statusMsg" class="status"></div>
@@ -95,9 +93,13 @@
 
     async function sendTelegramAlert(text) {
       showStatus("Sending alert...");
-      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(text)}`;
       try {
-        const res = await fetch(url);
+        const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: CHAT_ID, text: text })
+        });
         if (res.ok) {
           showStatus("✓ Alert delivered to owner's phone!");
         } else {
@@ -115,7 +117,6 @@
       document.getElementById("customMsg").value = "";
     }
 
-    // Call Engine using Native PeerJS WebRTC
     async function getMicrophone() {
       try {
         return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -169,7 +170,7 @@
       if (reload) window.location.href = window.location.pathname;
     }
 
-    // Check if the page is opened by YOU (the receiver) answering from Telegram
+    // Check if the page is opened by receiver answering from Telegram link
     window.onload = async function() {
       const urlParams = new URLSearchParams(window.location.search);
       const targetCallerId = urlParams.get("call");
