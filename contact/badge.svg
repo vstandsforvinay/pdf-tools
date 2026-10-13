@@ -28,12 +28,7 @@
   <rect x="100" y="115" width="200" height="200" rx="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5 4" />
 
   <!-- QR Insertion Area: Replace this <g> with your QR image -->
-  <g id="qr-placeholder">
-    <rect x="115" y="130" width="170" height="170" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1" />
-    <path d="M 185 185 L 215 185 M 200 170 L 200 200" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" />
-    <text x="200" y="222" text-anchor="middle" class="placeholder-text">INSERT QR HERE</text>
-    <text x="200" y="238" text-anchor="middle" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9.5px; fill: #94a3b8;">200 × 200 px</text>
-  </g>
+  <image href="qrcode.png" x="110" y="125" width="180" height="180" />
 
   <!-- Feature List -->
   <g transform="translate(45, 332)">
