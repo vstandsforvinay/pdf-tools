@@ -34,7 +34,7 @@
   <div class="card">
     <div class="badge">Shielded Relay</div>
     <h1>Contact Owner</h1>
-    <p>Identity & phone numbers are completely masked.</p>
+    <p>Identity &amp; phone numbers are completely masked.</p>
 
     <!-- Normal Interface -->
     <div id="mainInterface">
@@ -46,13 +46,13 @@
         <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #fff; padding: 0 10px; color: #9ca3af; font-size: 12px;">OR SEND QUICK ALERT</span>
       </div>
 
-      <button class="btn btn-preset" onclick="sendTelegramAlert('🚗 Vehicle is blocking the gate/way')">
+      <button class="btn btn-preset" onclick="sendRelayAlert('🚗 Vehicle is blocking the gate/way')">
         🚗 Vehicle is blocking the gate
       </button>
-      <button class="btn btn-preset" onclick="sendTelegramAlert('⚠️ Lights left on / Window open')">
+      <button class="btn btn-preset" onclick="sendRelayAlert('⚠️ Lights left on / Window open')">
         ⚠️ Lights on / Window open
       </button>
-      <button class="btn btn-preset" onclick="sendTelegramAlert('🚨 Urgent: Attend to vehicle')">
+      <button class="btn btn-preset" onclick="sendRelayAlert('🚨 Urgent: Attend to vehicle')">
         🚨 Urgent: Attend to vehicle
       </button>
 
@@ -113,7 +113,7 @@
     function sendCustomAlert() {
       const txt = document.getElementById("customMsg").value.trim();
       if (!txt) return;
-      sendTelegramAlert(`${txt}`);
+      sendRelayAlert(`📝 Note: ${txt}`);
       document.getElementById("customMsg").value = "";
     }
 
@@ -140,7 +140,7 @@
       peer.on("open", () => {
         const answerUrl = `https://vstandsforvinay.github.io/pdf-tools/contact/?call=${callerId}`;
         const msg = `📞 INCOMING VOICE CALL!\n\nTap link to answer:\n${answerUrl}`;
-        sendTelegramAlert(msg);
+        sendRelayAlert(msg);
       });
 
       peer.on("call", (incoming) => {
