@@ -1,86 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contact Vehicle Owner</title>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
-    .card { background: #ffffff; width: 100%; max-width: 420px; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); text-align: center; }
-    .badge { display: inline-block; padding: 4px 12px; background: #e0f2fe; color: #0369a1; border-radius: 999px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
-    h1 { font-size: 20px; color: #111827; margin-bottom: 8px; }
-    p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
-    .btn { display: block; width: 100%; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; border: none; margin-bottom: 12px; transition: 0.2s; }
-    .btn-call { background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-call:hover { background: #15803d; }
-    .btn-end { background: #dc2626; color: white; margin-top: 10px; }
-    .btn-preset { background: #f9fafb; color: #374151; border: 1px solid #e5e7eb; text-align: left; padding: 12px 16px; }
-    .btn-preset:hover { background: #f3f4f6; }
-    .custom-box { margin-top: 16px; text-align: left; }
-    textarea { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; resize: none; font-size: 14px; outline: none; }
-    .btn-send { background: #2563eb; color: white; margin-top: 8px; }
-    .status { margin-top: 16px; font-size: 14px; color: #059669; display: none; font-weight: 500; }
-    
-    #callScreen { display: none; margin-top: 16px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
-    .pulsing-dot { width: 12px; height: 12px; background: #16a34a; border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
-  </style>
-</head>
-<body>
-
-  <div class="card">
-    <div class="badge">Shielded Relay</div>
-    <h1>Contact Owner</h1>
-    <p>Identity &amp; phone numbers are completely masked.</p>
-
-    <!-- Normal UI -->
-    <div id="mainInterface">
-      <button class="btn btn-call" id="callBtn" onclick="initiateAudioCall()">
-        📞 Start Private Voice Call
-      </button>
-
-      <div style="margin: 20px 0; border-top: 1px solid #e5e7eb; position: relative;">
-        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #fff; padding: 0 10px; color: #9ca3af; font-size: 12px;">OR SEND QUICK ALERT</span>
-      </div>
-
-      <button class="btn btn-preset" onclick="sendRelayAlert('🚗 Vehicle is blocking the gate/way')">
-        🚗 Vehicle is blocking the gate
-      </button>
-      <button class="btn btn-preset" onclick="sendRelayAlert('⚠️ Lights left on / Window open')">
-        ⚠️ Lights on / Window open
-      </button>
-      <button class="btn btn-preset" onclick="sendRelayAlert('🚨 Urgent: Attend to vehicle')">
-        🚨 Urgent: Attend to vehicle
-      </button>
-
-      <div class="custom-box">
-        <textarea id="customMsg" rows="2" placeholder="Type a message to the owner..."></textarea>
-        <button class="btn btn-send" onclick="sendCustomAlert()">Send Message</button>
-      </div>
-    </div>
-
-    <!-- Live In-Call Screen -->
-    <div id="callScreen">
-      <h3 style="font-size: 16px; margin-bottom: 8px;">
-        <span class="pulsing-dot"></span><span id="callStateLabel">Connecting...</span>
-      </h3>
-      <p id="callSubtext" style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Please wait...</p>
-      <button class="btn btn-end" onclick="endCurrentCall()">Disconnect Call</button>
-    </div>
-
-    <audio id="remoteAudio" autoplay playsinline></audio>
-    <div id="statusMsg" class="status"></div>
-  </div>
-
   <script>
     const RELAY_ENDPOINT = "https://qr-relay-proxy.vstandsforvinay.workers.dev";
+    
+    // Google Public STUN Servers to traverse NAT/Firewalls
     const PEER_CONFIG = {
       config: {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" }
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" }
         ]
       }
     };
@@ -94,7 +21,7 @@
       el.style.display = "block";
       el.style.color = isError ? "#dc2626" : "#059669";
       el.innerText = text;
-      setTimeout(() => { el.style.display = "none"; }, 6000);
+      setTimeout(() => { el.style.display = "none"; }, 5000);
     }
 
     async function sendRelayAlert(text) {
@@ -124,68 +51,75 @@
 
     async function getMicrophone() {
       try {
-        return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        return await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: false
+        });
       } catch (e) {
-        alert("Please enable microphone permissions in your browser.");
+        alert("Microphone permission is required to speak.");
         return null;
       }
     }
 
-    // Caller Side (Laptop)
+    function attachRemoteAudio(stream) {
+      const audioEl = document.getElementById("remoteAudio");
+      audioEl.srcObject = stream;
+      audioEl.volume = 1.0;
+      audioEl.play().catch(err => {
+        console.warn("Audio autoplay blocked by browser:", err);
+      });
+    }
+
+    function setupCallEventHandlers(call) {
+      activeCall = call;
+      document.getElementById("callStateLabel").innerText = "Call Connected (Live)";
+      document.getElementById("callSubtext").innerText = "Speaking line active. Mic is open.";
+
+      // Listen for remote audio stream
+      call.on("stream", (remoteStream) => {
+        attachRemoteAudio(remoteStream);
+      });
+
+      call.on("close", () => endCurrentCall(false));
+      call.on("error", (err) => showStatus("Audio stream error: " + err, true));
+    }
+
+    // CALLER SIDE (Laptop / Scanner)
     async function initiateAudioCall() {
       localStream = await getMicrophone();
       if (!localStream) return;
 
       document.getElementById("mainInterface").style.display = "none";
       document.getElementById("callScreen").style.display = "block";
-      document.getElementById("callStateLabel").innerText = "Setting up call...";
-      document.getElementById("callSubtext").innerText = "Connecting to signaling server...";
+      document.getElementById("callStateLabel").innerText = "Starting Call...";
+      document.getElementById("callSubtext").innerText = "Connecting to relay...";
 
       const callerId = "c" + Math.random().toString(36).substring(2, 8);
       peer = new Peer(callerId, PEER_CONFIG);
 
       peer.on("open", () => {
-        // Explicit canonical link to prevent path truncation
         const directLink = `https://vstandsforvinay.github.io/pdf-tools/contact/?call=${callerId}`;
-        const alertMsg = `📞 INCOMING VOICE CALL!\n\nOpen this link to answer:\n${directLink}`;
-        
+        const alertMsg = `📞 INCOMING VOICE CALL!\n\nOpen link to answer:\n${directLink}`;
+
         document.getElementById("callStateLabel").innerText = "Calling Owner...";
-        document.getElementById("callSubtext").innerText = "Alert sent. Waiting for owner to open link...";
+        document.getElementById("callSubtext").innerText = "Waiting for owner to accept...";
         sendRelayAlert(alertMsg);
       });
 
-      peer.on("call", (incoming) => {
-        incoming.answer(localStream);
-        handleCallStream(incoming);
+      // When receiver calls back, answer with local mic stream
+      peer.on("call", (incomingCall) => {
+        incomingCall.answer(localStream);
+        setupCallEventHandlers(incomingCall);
       });
 
-      peer.on("error", (err) => {
-        showStatus("Relay error: " + err.type, true);
-      });
+      peer.on("error", (err) => showStatus("Call error: " + err.type, true));
     }
 
-    function handleCallStream(call) {
-      activeCall = call;
-      document.getElementById("callStateLabel").innerText = "Call Connected (Live)";
-      document.getElementById("callSubtext").innerText = "Voice line is active.";
-
-      call.on("stream", (remoteStream) => {
-        const audio = document.getElementById("remoteAudio");
-        audio.srcObject = remoteStream;
-        audio.play().catch(e => console.log("Audio autoplay issue:", e));
-      });
-
-      call.on("close", () => endCurrentCall(false));
-    }
-
-    function endCurrentCall(reload = true) {
-      if (activeCall) activeCall.close();
-      if (localStream) localStream.getTracks().forEach(t => t.stop());
-      if (peer) peer.destroy();
-      if (reload) window.location.href = window.location.pathname;
-    }
-
-    // Receiver Side (Phone clicking Telegram link)
+    // RECEIVER SIDE (Owner opening link on Phone)
     window.onload = async function() {
       const urlParams = new URLSearchParams(window.location.search);
       const targetCallerId = urlParams.get("call");
@@ -193,37 +127,39 @@
       if (targetCallerId) {
         document.getElementById("mainInterface").style.display = "none";
         document.getElementById("callScreen").style.display = "block";
-        document.getElementById("callStateLabel").innerText = "Incoming Voice Call";
+        document.getElementById("callStateLabel").innerText = "Incoming Call";
         document.getElementById("callSubtext").innerHTML = 
-          `<button class="btn btn-call" id="joinBtn" style="margin-top:10px;">🟢 Tap Here to Answer Call</button>`;
+          `<button class="btn btn-call" id="joinBtn" style="margin-top:10px;">🟢 Tap to Join & Speak</button>`;
 
         document.getElementById("joinBtn").onclick = async function() {
           this.disabled = true;
-          this.innerText = "Connecting microphone...";
+          this.innerText = "Connecting audio...";
 
           localStream = await getMicrophone();
           if (!localStream) {
             this.disabled = false;
-            this.innerText = "Retry Answering";
+            this.innerText = "Retry";
             return;
           }
 
-          document.getElementById("callStateLabel").innerText = "Establishing audio line...";
-          
           const receiverId = "r" + Math.random().toString(36).substring(2, 8);
           peer = new Peer(receiverId, PEER_CONFIG);
 
           peer.on("open", () => {
-            const call = peer.call(targetCallerId, localStream);
-            handleCallStream(call);
+            // Dial caller with receiver's mic stream
+            const outgoingCall = peer.call(targetCallerId, localStream);
+            setupCallEventHandlers(outgoingCall);
           });
 
-          peer.on("error", (err) => {
-            showStatus("Connection error: " + err.type, true);
-          });
+          peer.on("error", (err) => showStatus("Connection error: " + err.type, true));
         };
       }
     };
+
+    function endCurrentCall(reload = true) {
+      if (activeCall) activeCall.close();
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (peer) peer.destroy();
+      if (reload) window.location.href = window.location.pathname;
+    }
   </script>
-</body>
-</html>
