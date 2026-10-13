@@ -1,83 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contact Vehicle Owner</title>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
-    .card { background: #ffffff; width: 100%; max-width: 420px; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); text-align: center; }
-    .badge { display: inline-block; padding: 4px 12px; background: #e0f2fe; color: #0369a1; border-radius: 999px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
-    h1 { font-size: 20px; color: #111827; margin-bottom: 8px; }
-    p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
-    .btn { display: block; width: 100%; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; border: none; margin-bottom: 12px; transition: 0.2s; }
-    .btn-call { background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-call:hover { background: #15803d; }
-    .btn-end { background: #dc2626; color: white; margin-top: 10px; }
-    .btn-preset { background: #f9fafb; color: #374151; border: 1px solid #e5e7eb; text-align: left; padding: 12px 16px; }
-    .btn-preset:hover { background: #f3f4f6; }
-    .custom-box { margin-top: 16px; text-align: left; }
-    textarea { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; resize: none; font-size: 14px; outline: none; }
-    .btn-send { background: #2563eb; color: white; margin-top: 8px; }
-    .status { margin-top: 16px; font-size: 14px; color: #059669; display: none; font-weight: 500; }
-    
-    /* Dedicated In-Call Screen */
-    #callScreen { display: none; margin-top: 16px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
-    .pulsing-dot { width: 12px; height: 12px; background: #16a34a; border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
-  </style>
-</head>
-<body>
-
-  <div class="card">
-    <div class="badge">Shielded Relay</div>
-    <h1>Contact Owner</h1>
-    <p>Identity &amp; phone numbers are completely masked.</p>
-
-    <!-- Normal Interface -->
-    <div id="mainInterface">
-      <button class="btn btn-call" id="callBtn" onclick="initiateAudioCall()">
-        📞 Start Private Voice Call
-      </button>
-
-      <div style="margin: 20px 0; border-top: 1px solid #e5e7eb; position: relative;">
-        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #fff; padding: 0 10px; color: #9ca3af; font-size: 12px;">OR SEND QUICK ALERT</span>
-      </div>
-
-      <button class="btn btn-preset" onclick="sendRelayAlert('🚗 Vehicle is blocking the gate/way')">
-        🚗 Vehicle is blocking the gate
-      </button>
-      <button class="btn btn-preset" onclick="sendRelayAlert('⚠️ Lights left on / Window open')">
-        ⚠️ Lights on / Window open
-      </button>
-      <button class="btn btn-preset" onclick="sendRelayAlert('🚨 Urgent: Attend to vehicle')">
-        🚨 Urgent: Attend to vehicle
-      </button>
-
-      <div class="custom-box">
-        <textarea id="customMsg" rows="2" placeholder="Type a message to the owner..."></textarea>
-        <button class="btn btn-send" onclick="sendCustomAlert()">Send Message</button>
-      </div>
-    </div>
-
-    <!-- Live In-Call Box -->
-    <div id="callScreen">
-      <h3 style="font-size: 16px; margin-bottom: 8px;">
-        <span class="pulsing-dot"></span><span id="callStateLabel">Calling owner...</span>
-      </h3>
-      <p id="callSubtext" style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Waiting for owner to answer...</p>
-      <button class="btn btn-end" onclick="endCurrentCall()">Disconnect Call</button>
-    </div>
-
-    <!-- Hidden audio element for WebRTC sound playback -->
-    <audio id="remoteAudio" autoplay></audio>
-
-    <div id="statusMsg" class="status"></div>
-  </div>
-
-  <script>
+<script>
     const RELAY_ENDPOINT = "https://qr-relay-proxy.vstandsforvinay.workers.dev";
 
     let peer = null;
@@ -117,12 +38,11 @@
       document.getElementById("customMsg").value = "";
     }
 
-    // Call Engine using Native PeerJS WebRTC
     async function getMicrophone() {
       try {
         return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       } catch (e) {
-        alert("Please allow microphone access to make the audio call.");
+        alert("Please grant microphone permissions to use voice calls.");
         return null;
       }
     }
@@ -133,19 +53,27 @@
 
       document.getElementById("mainInterface").style.display = "none";
       document.getElementById("callScreen").style.display = "block";
+      document.getElementById("callStateLabel").innerText = "Connecting to relay...";
+      document.getElementById("callSubtext").innerText = "Notifying owner via Telegram...";
 
       const callerId = "caller_" + Math.random().toString(36).substring(2, 9);
       peer = new Peer(callerId);
 
       peer.on("open", () => {
-        const answerUrl = `https://vstandsforvinay.github.io/pdf-tools/contact/?call=${callerId}`;
-        const msg = `📞 INCOMING VOICE CALL!\n\nTap link to answer:\n${answerUrl}`;
+        // Build answer URL dynamically based on current location
+        const baseUrl = window.location.origin + window.location.pathname;
+        const answerUrl = `${baseUrl}?call=${callerId}`;
+        const msg = `📞 INCOMING VOICE CALL!\n\nTap to answer:\n${answerUrl}`;
         sendRelayAlert(msg);
       });
 
       peer.on("call", (incoming) => {
         incoming.answer(localStream);
         handleCallStream(incoming);
+      });
+
+      peer.on("error", (err) => {
+        showStatus(`Connection error: ${err.type}`, true);
       });
     }
 
@@ -157,6 +85,7 @@
       call.on("stream", (remoteStream) => {
         const audio = document.getElementById("remoteAudio");
         audio.srcObject = remoteStream;
+        audio.play().catch(e => console.log("Audio play error:", e));
       });
 
       call.on("close", () => {
@@ -171,7 +100,7 @@
       if (reload) window.location.href = window.location.pathname;
     }
 
-    // Check if the page is opened by YOU (the receiver) answering from Telegram
+    // Receiver Handler (Phone opening the link from Telegram)
     window.onload = async function() {
       const urlParams = new URLSearchParams(window.location.search);
       const targetCallerId = urlParams.get("call");
@@ -179,21 +108,29 @@
       if (targetCallerId) {
         document.getElementById("mainInterface").style.display = "none";
         document.getElementById("callScreen").style.display = "block";
-        document.getElementById("callStateLabel").innerText = "Connecting to caller...";
-        document.getElementById("callSubtext").innerText = "Setting up secure audio line...";
+        document.getElementById("callStateLabel").innerText = "Incoming Call";
+        document.getElementById("callSubtext").innerHTML = 
+          `<button class="btn btn-call" id="answerBtn" style="margin-top:10px;">Tap to Connect Audio</button>`;
 
-        localStream = await getMicrophone();
-        if (!localStream) return;
+        document.getElementById("answerBtn").onclick = async function() {
+          this.disabled = true;
+          this.innerText = "Connecting...";
 
-        const receiverId = "receiver_" + Math.random().toString(36).substring(2, 9);
-        peer = new Peer(receiverId);
+          localStream = await getMicrophone();
+          if (!localStream) return;
 
-        peer.on("open", () => {
-          const call = peer.call(targetCallerId, localStream);
-          handleCallStream(call);
-        });
+          const receiverId = "receiver_" + Math.random().toString(36).substring(2, 9);
+          peer = new Peer(receiverId);
+
+          peer.on("open", () => {
+            const call = peer.call(targetCallerId, localStream);
+            handleCallStream(call);
+          });
+
+          peer.on("error", (err) => {
+            showStatus(`Error linking call: ${err.type}`, true);
+          });
+        };
       }
     };
   </script>
-</body>
-</html>
