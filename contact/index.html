@@ -1,7 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Owner</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #0f172a; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; color: #1e293b; }
+    .card { background: #ffffff; width: 100%; max-width: 400px; border-radius: 24px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); text-align: center; overflow: hidden; position: relative; }
+    
+    /* Standard View Styles */
+    .badge { display: inline-block; padding: 4px 12px; background: #e0f2fe; color: #0284c7; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 12px; }
+    h1 { font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 6px; }
+    p.subtext { color: #64748b; font-size: 13px; margin-bottom: 20px; }
+    .btn { display: block; width: 100%; padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; border: none; margin-bottom: 10px; transition: 0.2s; }
+    .btn-call { background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3); }
+    .btn-call:hover { background: #15803d; }
+    .btn-preset { background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; text-align: left; padding: 12px 16px; font-size: 14px; }
+    .btn-preset:hover { background: #f1f5f9; border-color: #cbd5e1; }
+    .custom-box { margin-top: 14px; text-align: left; }
+    textarea { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; resize: none; font-size: 13.5px; outline: none; }
+    textarea:focus { border-color: #0284c7; }
+    .btn-send { background: #0284c7; color: white; margin-top: 6px; }
+    .status { margin-top: 14px; font-size: 13px; font-weight: 600; display: none; }
+
+    /* Modern Phone Dialer In-Call Screen */
+    #callScreen { display: none; padding-top: 10px; }
+    .caller-avatar { width: 72px; height: 72px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 14px; border: 2px solid #bae6fd; }
+    .caller-name { font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+    .call-timer { font-size: 14px; color: #64748b; font-weight: 500; margin-bottom: 24px; }
+
+    /* In-Call Quick Action Grid */
+    .action-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; padding: 0 10px; }
+    .action-item { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+    .round-btn { width: 56px; height: 56px; border-radius: 50%; background: #f1f5f9; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #334155; transition: 0.2s; }
+    .round-btn:active { transform: scale(0.95); }
+    .round-btn.active { background: #0f172a; color: #ffffff; border-color: #0f172a; }
+    .action-label { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; }
+
+    /* Slide-down Keypad Tray */
+    #keypadDrawer { display: none; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; padding: 14px; background: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0; }
+    .key-btn { height: 48px; border-radius: 12px; background: #ffffff; border: 1px solid #cbd5e1; font-size: 18px; font-weight: 700; color: #1e293b; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; cursor: pointer; }
+    .key-btn span.sub-letters { font-size: 8px; color: #94a3b8; font-weight: 600; margin-top: 2px; }
+    .key-btn:active { background: #e2e8f0; }
+
+    .btn-end { background: #ef4444; color: #ffffff; font-size: 16px; height: 54px; border-radius: 27px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4); margin-top: 10px; }
+    .btn-end:hover { background: #dc2626; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    
+    <!-- MAIN SCREEN (Normal Mode) -->
+    <div id="mainInterface">
+      <div class="badge">Shielded Relay</div>
+      <h1>Contact Owner</h1>
+      <p class="subtext">Identity &amp; phone numbers are completely masked.</p>
+
+      <button class="btn btn-call" id="callBtn" onclick="initiateAudioCall()">
+        📞 Start Voice Call
+      </button>
+
+      <div style="margin: 22px 0 16px; border-top: 1px solid #f1f5f9; position: relative;">
+        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #fff; padding: 0 12px; color: #94a3af; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">OR SEND QUICK ALERT</span>
+      </div>
+
+      <button class="btn btn-preset" onclick="sendRelayAlert('🚗 Vehicle is blocking the gate/way')">
+        🚗 Vehicle is blocking the gate
+      </button>
+      <button class="btn btn-preset" onclick="sendRelayAlert('⚠️ Lights left on / Window open')">
+        ⚠️ Lights left on / Window open
+      </button>
+      <button class="btn btn-preset" onclick="sendRelayAlert('🚨 Urgent: Please attend to vehicle')">
+        🚨 Urgent: Please attend to vehicle
+      </button>
+
+      <div class="custom-box">
+        <textarea id="customMsg" rows="2" placeholder="Type a message to owner..."></textarea>
+        <button class="btn btn-send" onclick="sendCustomAlert()">Send Message</button>
+      </div>
+    </div>
+
+    <!-- IN-CALL SCREEN (Dialer Experience) -->
+    <div id="callScreen">
+      <div class="caller-avatar">🛡️</div>
+      <div class="caller-name" id="callPeerName">Vehicle Relay</div>
+      <div class="call-timer" id="callStatusTimer">Connecting...</div>
+
+      <!-- Dialer Action Buttons -->
+      <div class="action-grid">
+        <!-- Mic Mute Toggle -->
+        <div class="action-item" onclick="toggleMute()">
+          <div class="round-btn" id="muteBtn">🎤</div>
+          <span class="action-label" id="muteLabel">Mute</span>
+        </div>
+        <!-- Keypad Toggle -->
+        <div class="action-item" onclick="toggleKeypad()">
+          <div class="round-btn" id="keypadBtn">🔢</div>
+          <span class="action-label">Keypad</span>
+        </div>
+        <!-- Speaker / Audio Boost -->
+        <div class="action-item" onclick="toggleSpeaker()">
+          <div class="round-btn" id="speakerBtn">🔊</div>
+          <span class="action-label" id="speakerLabel">Speaker</span>
+        </div>
+      </div>
+
+      <!-- Expandable Keypad -->
+      <div id="keypadDrawer">
+        <button class="key-btn" onclick="tapKey('1')">1</button>
+        <button class="key-btn" onclick="tapKey('2')">2<span class="sub-letters">ABC</span></button>
+        <button class="key-btn" onclick="tapKey('3')">3<span class="sub-letters">DEF</span></button>
+        <button class="key-btn" onclick="tapKey('4')">4<span class="sub-letters">GHI</span></button>
+        <button class="key-btn" onclick="tapKey('5')">5<span class="sub-letters">JKL</span></button>
+        <button class="key-btn" onclick="tapKey('6')">6<span class="sub-letters">MNO</span></button>
+        <button class="key-btn" onclick="tapKey('7')">7<span class="sub-letters">PQRS</span></button>
+        <button class="key-btn" onclick="tapKey('8')">8<span class="sub-letters">TUV</span></button>
+        <button class="key-btn" onclick="tapKey('9')">9<span class="sub-letters">WXYZ</span></button>
+        <button class="key-btn" onclick="tapKey('*')">*</button>
+        <button class="key-btn" onclick="tapKey('0')">0</button>
+        <button class="key-btn" onclick="tapKey('#')">#</button>
+      </div>
+
+      <!-- End Call Button -->
+      <button class="btn btn-end" onclick="endCurrentCall()">
+        ☎️ End Call
+      </button>
+    </div>
+
+    <!-- Hidden WebRTC Audio Output -->
+    <audio id="remoteAudio" autoplay playsinline></audio>
+    <div id="statusMsg" class="status"></div>
+  </div>
+
   <script>
     const RELAY_ENDPOINT = "https://qr-relay-proxy.vstandsforvinay.workers.dev";
     
-    // Google Public STUN Servers to traverse NAT/Firewalls
     const PEER_CONFIG = {
       config: {
         iceServers: [
@@ -15,11 +151,19 @@
     let peer = null;
     let activeCall = null;
     let localStream = null;
+    let callTimerInterval = null;
+    let callSeconds = 0;
+    let isMuted = false;
+    let isKeypadOpen = false;
+    let isSpeakerBoosted = false;
+
+    // Web Audio Context for generating audible Keypad Beeps
+    let audioCtx = null;
 
     function showStatus(text, isError = false) {
       const el = document.getElementById("statusMsg");
       el.style.display = "block";
-      el.style.color = isError ? "#dc2626" : "#059669";
+      el.style.color = isError ? "#ef4444" : "#16a34a";
       el.innerText = text;
       setTimeout(() => { el.style.display = "none"; }, 5000);
     }
@@ -52,51 +196,104 @@
     async function getMicrophone() {
       try {
         return await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
           video: false
         });
       } catch (e) {
-        alert("Microphone permission is required to speak.");
+        alert("Please enable microphone permissions in your browser.");
         return null;
       }
     }
 
-    function attachRemoteAudio(stream) {
+    function startTimer() {
+      callSeconds = 0;
+      clearInterval(callTimerInterval);
+      callTimerInterval = setInterval(() => {
+        callSeconds++;
+        const mins = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+        const secs = String(callSeconds % 60).padStart(2, '0');
+        document.getElementById("callStatusTimer").innerText = `${mins}:${secs}`;
+      }, 1000);
+    }
+
+    // Interactive In-Call Controls
+    function toggleMute() {
+      if (!localStream) return;
+      isMuted = !isMuted;
+      localStream.getAudioTracks().forEach(track => { track.enabled = !isMuted; });
+      const btn = document.getElementById("muteBtn");
+      const label = document.getElementById("muteLabel");
+      if (isMuted) {
+        btn.classList.add("active");
+        label.innerText = "Muted";
+      } else {
+        btn.classList.remove("active");
+        label.innerText = "Mute";
+      }
+    }
+
+    function toggleKeypad() {
+      isKeypadOpen = !isKeypadOpen;
+      document.getElementById("keypadDrawer").style.display = isKeypadOpen ? "grid" : "none";
+      document.getElementById("keypadBtn").classList.toggle("active", isKeypadOpen);
+    }
+
+    function toggleSpeaker() {
       const audioEl = document.getElementById("remoteAudio");
-      audioEl.srcObject = stream;
-      audioEl.volume = 1.0;
-      audioEl.play().catch(err => {
-        console.warn("Audio autoplay blocked by browser:", err);
-      });
+      isSpeakerBoosted = !isSpeakerBoosted;
+      audioEl.volume = isSpeakerBoosted ? 1.0 : 0.6;
+      document.getElementById("speakerBtn").classList.toggle("active", isSpeakerBoosted);
+      document.getElementById("speakerLabel").innerText = isSpeakerBoosted ? "High Vol" : "Speaker";
+    }
+
+    function tapKey(digit) {
+      playTone();
+      document.getElementById("callStatusTimer").innerText = `DTMF Key: ${digit}`;
+      setTimeout(() => {
+        const mins = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+        const secs = String(callSeconds % 60).padStart(2, '0');
+        document.getElementById("callStatusTimer").innerText = `${mins}:${secs}`;
+      }, 800);
+    }
+
+    function playTone() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.value = 440;
+        osc.type = "sine";
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.12);
+      } catch (e) {}
     }
 
     function setupCallEventHandlers(call) {
       activeCall = call;
-      document.getElementById("callStateLabel").innerText = "Call Connected (Live)";
-      document.getElementById("callSubtext").innerText = "Speaking line active. Mic is open.";
+      document.getElementById("callPeerName").innerText = "Owner Connected";
+      startTimer();
 
-      // Listen for remote audio stream
       call.on("stream", (remoteStream) => {
-        attachRemoteAudio(remoteStream);
+        const audioEl = document.getElementById("remoteAudio");
+        audioEl.srcObject = remoteStream;
+        audioEl.play().catch(e => console.log("Autoplay error:", e));
       });
 
       call.on("close", () => endCurrentCall(false));
       call.on("error", (err) => showStatus("Audio stream error: " + err, true));
     }
 
-    // CALLER SIDE (Laptop / Scanner)
+    // CALLER SIDE (Scanner / Laptop)
     async function initiateAudioCall() {
       localStream = await getMicrophone();
       if (!localStream) return;
 
       document.getElementById("mainInterface").style.display = "none";
       document.getElementById("callScreen").style.display = "block";
-      document.getElementById("callStateLabel").innerText = "Starting Call...";
-      document.getElementById("callSubtext").innerText = "Connecting to relay...";
+      document.getElementById("callStatusTimer").innerText = "Dialing owner...";
 
       const callerId = "c" + Math.random().toString(36).substring(2, 8);
       peer = new Peer(callerId, PEER_CONFIG);
@@ -104,22 +301,19 @@
       peer.on("open", () => {
         const directLink = `https://vstandsforvinay.github.io/pdf-tools/contact/?call=${callerId}`;
         const alertMsg = `📞 INCOMING VOICE CALL!\n\nOpen link to answer:\n${directLink}`;
-
-        document.getElementById("callStateLabel").innerText = "Calling Owner...";
-        document.getElementById("callSubtext").innerText = "Waiting for owner to accept...";
+        document.getElementById("callStatusTimer").innerText = "Ringing owner's phone...";
         sendRelayAlert(alertMsg);
       });
 
-      // When receiver calls back, answer with local mic stream
       peer.on("call", (incomingCall) => {
         incomingCall.answer(localStream);
         setupCallEventHandlers(incomingCall);
       });
 
-      peer.on("error", (err) => showStatus("Call error: " + err.type, true));
+      peer.on("error", (err) => showStatus("Relay error: " + err.type, true));
     }
 
-    // RECEIVER SIDE (Owner opening link on Phone)
+    // RECEIVER SIDE (Owner opening link from Telegram)
     window.onload = async function() {
       const urlParams = new URLSearchParams(window.location.search);
       const targetCallerId = urlParams.get("call");
@@ -127,13 +321,13 @@
       if (targetCallerId) {
         document.getElementById("mainInterface").style.display = "none";
         document.getElementById("callScreen").style.display = "block";
-        document.getElementById("callStateLabel").innerText = "Incoming Call";
-        document.getElementById("callSubtext").innerHTML = 
-          `<button class="btn btn-call" id="joinBtn" style="margin-top:10px;">🟢 Tap to Join & Speak</button>`;
+        document.getElementById("callPeerName").innerText = "Incoming Vehicle Call";
+        document.getElementById("callStatusTimer").innerHTML = 
+          `<button class="btn btn-call" id="joinBtn" style="margin: 12px 0;">🟢 Answer Voice Call</button>`;
 
         document.getElementById("joinBtn").onclick = async function() {
           this.disabled = true;
-          this.innerText = "Connecting audio...";
+          this.innerText = "Connecting...";
 
           localStream = await getMicrophone();
           if (!localStream) {
@@ -142,24 +336,28 @@
             return;
           }
 
+          document.getElementById("callStatusTimer").innerText = "Linking call...";
+
           const receiverId = "r" + Math.random().toString(36).substring(2, 8);
           peer = new Peer(receiverId, PEER_CONFIG);
 
           peer.on("open", () => {
-            // Dial caller with receiver's mic stream
             const outgoingCall = peer.call(targetCallerId, localStream);
             setupCallEventHandlers(outgoingCall);
           });
 
-          peer.on("error", (err) => showStatus("Connection error: " + err.type, true));
+          peer.on("error", (err) => showStatus("Handshake error: " + err.type, true));
         };
       }
     };
 
     function endCurrentCall(reload = true) {
+      clearInterval(callTimerInterval);
       if (activeCall) activeCall.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
       if (peer) peer.destroy();
       if (reload) window.location.href = window.location.pathname;
     }
   </script>
+</body>
+</html>
