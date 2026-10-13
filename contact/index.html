@@ -1,1 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Vehicle Owner</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+    .card { background: #ffffff; width: 100%; max-width: 420px; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); text-align: center; }
+    .badge { display: inline-block; padding: 4px 12px; background: #e0f2fe; color: #0369a1; border-radius: 999px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+    h1 { font-size: 20px; color: #111827; margin-bottom: 8px; }
+    p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+    .btn { display: block; width: 100%; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; border: none; margin-bottom: 12px; transition: 0.2s; }
+    .btn-call { background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-call:hover { background: #15803d; }
+    .btn-preset { background: #f9fafb; color: #374151; border: 1px solid #e5e7eb; text-align: left; padding: 12px 16px; }
+    .btn-preset:hover { background: #f3f4f6; }
+    .custom-box { margin-top: 16px; text-align: left; }
+    textarea { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; resize: none; font-size: 14px; outline: none; }
+    .btn-send { background: #2563eb; color: white; margin-top: 8px; }
+    .status { margin-top: 16px; font-size: 14px; color: #059669; display: none; font-weight: 500; }
+  </style>
+</head>
+<body>
 
+  <div class="card">
+    <div class="badge">Shielded Relay</div>
+    <h1>Contact Owner</h1>
+    <p>Identity & phone numbers are completely masked.</p>
+
+    <!-- Calling Option -->
+    <button class="btn btn-call" onclick="startVoIPCall()">
+      📞 Start Private Voice Call
+    </button>
+
+    <div style="margin: 20px 0; border-top: 1px solid #e5e7eb; position: relative;">
+      <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #fff; padding: 0 10px; color: #9ca3af; font-size: 12px;">OR SEND QUICK ALERT</span>
+    </div>
+
+    <!-- Preset Alerts -->
+    <button class="btn btn-preset" onclick="sendTelegramAlert('🚗 Vehicle is blocking the way / gate')">
+      🚗 Vehicle is blocking the gate
+    </button>
+    <button class="btn btn-preset" onclick="sendTelegramAlert('⚠️ Lights left on / Window open')">
+      ⚠️ Lights on / Window open
+    </button>
+    <button class="btn btn-preset" onclick="sendTelegramAlert('🚨 Urgent: Please attend to your vehicle')">
+      🚨 Urgent: Attend to vehicle
+    </button>
+
+    <!-- Custom Text Note -->
+    <div class="custom-box">
+      <textarea id="customMsg" rows="2" placeholder="Type a message to the owner..."></textarea>
+      <button class="btn btn-send" onclick="sendCustomAlert()">Send Message</button>
+    </div>
+
+    <div id="statusMsg" class="status"></div>
+  </div>
+
+  <script>
+    const BOT_TOKEN = "8782291710:AAF-RK3POZGcNIUoBuxLl0CUXTlw0M-N1Kw";
+    const CHAT_ID = "5857595738";
+
+    function showStatus(text, isError = false) {
+      const el = document.getElementById("statusMsg");
+      el.style.display = "block";
+      el.style.color = isError ? "#dc2626" : "#059669";
+      el.innerText = text;
+      setTimeout(() => { el.style.display = "none"; }, 5000);
+    }
+
+    async function sendTelegramAlert(text) {
+      showStatus("Sending alert...");
+      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(text)}`;
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          showStatus("✓ Alert delivered to owner's phone!");
+        } else {
+          showStatus("Failed to deliver alert. Try again.", true);
+        }
+      } catch (err) {
+        showStatus("Network error. Try again.", true);
+      }
+    }
+
+    function sendCustomAlert() {
+      const txt = document.getElementById("customMsg").value.trim();
+      if (!txt) return;
+      sendTelegramAlert(`📝 Note from scanner: ${txt}`);
+      document.getElementById("customMsg").value = "";
+    }
+
+    function startVoIPCall() {
+      showStatus("Setting up call link...");
+      const roomId = "call_" + Math.random().toString(36).substring(2, 10);
+      const callUrl = `https://meet.jit.si/${roomId}#config.startWithVideoMuted=true`;
+      
+      const alertText = `📞 INCOMING AUDIO CALL REQUEST!\n\nTap link to answer:\n${callUrl}`;
+      sendTelegramAlert(alertText);
+
+      setTimeout(() => {
+        window.location.href = callUrl;
+      }, 1200);
+    }
+  </script>
+</body>
+</html>
